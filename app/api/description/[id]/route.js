@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 export async function PATCH(req, { params }) {
   try {
     await connectMongoDB();
-    const { id } = params;
+    const { id } = await params;
     const { content } = await req.json();
 
     const updated = await Description.findByIdAndUpdate(

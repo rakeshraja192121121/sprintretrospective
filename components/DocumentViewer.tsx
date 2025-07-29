@@ -1,5 +1,7 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+
+import React from "react";
+import { useEditorStore } from "@/store/useEditorStore";
 
 interface VersionHistoryEntry {
   _id: string;
@@ -8,53 +10,33 @@ interface VersionHistoryEntry {
   update: string;
 }
 
-interface DescriptionEntry {
-  _id: string;
-  content: string;
-  createdAt: string;
-}
-
 export default function DocumentViewer() {
-  const [versionHistoryData, setVersionHistoryData] = useState<
+  const [versionHistoryData, setVersionHistoryData] = React.useState<
     VersionHistoryEntry[]
   >([]);
-  const [descriptionData, setDescriptionData] = useState<DescriptionEntry[]>(
-    []
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const fetchBoth = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [versRes, descRes] = await Promise.all([
-        fetch("/api/dataa"),
-        fetch("/api/description"),
-      ]);
-      if (!versRes.ok) {
-        const err = await versRes.json();
-        throw new Error(err.error || "Failed to fetch version history");
+  // ✅ Use Zustand global state
+  const descriptionHTML = useEditorStore((state) => state.descriptionHTML);
+
+  React.useEffect(() => {
+    const fetchVersionHistory = async () => {
+      try {
+        const versRes = await fetch("/api/dataa");
+        if (!versRes.ok) throw new Error("Failed to fetch version history");
+        const vData: VersionHistoryEntry[] = await versRes.json();
+        setVersionHistoryData(vData);
+      } catch (err: any) {
+        console.error("Fetch error:", err);
+        setError(err.message || "Unexpected error");
+      } finally {
+        setIsLoading(false);
       }
-      if (!descRes.ok) {
-        const err = await descRes.json();
-        throw new Error(err.error || "Failed to fetch description");
-      }
-      const vData: VersionHistoryEntry[] = await versRes.json();
-      const dData: DescriptionEntry[] = await descRes.json();
-      setVersionHistoryData(vData);
-      setDescriptionData(dData);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Unexpected fetch error");
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    fetchVersionHistory();
   }, []);
-
-  useEffect(() => {
-    fetchBoth();
-  }, [fetchBoth]);
 
   if (isLoading) {
     return (
@@ -82,7 +64,7 @@ export default function DocumentViewer() {
           Generated on: {new Date().toLocaleDateString()}
         </p>
 
-        {/* Version History Table */}
+        {/* Version History Section */}
         <section className="mb-12">
           <h2 className="text-xl font-semibold mb-4">Version History</h2>
           <table className="w-full border border-gray-300 text-sm">
@@ -94,8 +76,8 @@ export default function DocumentViewer() {
               </tr>
             </thead>
             <tbody>
-              {versionHistoryData.map((entry, index) => (
-                <tr key={entry._id || index} className="even:bg-gray-50">
+              {versionHistoryData.map((entry) => (
+                <tr key={entry._id} className="even:bg-gray-50">
                   <td className="border p-2">{entry.date || "N/A"}</td>
                   <td className="border p-2">{entry.name || "N/A"}</td>
                   <td className="border p-2">{entry.update || "N/A"}</td>
@@ -103,21 +85,26 @@ export default function DocumentViewer() {
               ))}
             </tbody>
           </table>
+          {versionHistoryData.length === 0 && (
+            <p className="text-gray-500 italic mt-4">
+              No version history available.
+            </p>
+          )}
         </section>
 
-        {/* Description Section */}
+        {/* Description Section from Global State */}
         <section>
           <h2 className="text-xl font-semibold mb-4">Description</h2>
-          <div className="space-y-6">
-            {descriptionData.map((desc, index) => (
-              <div key={desc._id}>
-                <h3 className="font-semibold mb-1">{index + 1}.</h3>
-                <p className="text-gray-800 document-paragraph">
-                  {desc.content || "N/A"}
-                </p>
-              </div>
-            ))}
-          </div>
+          {descriptionHTML ? (
+            <div
+              className="text-gray-800 document-paragraph"
+              dangerouslySetInnerHTML={{ __html: descriptionHTML }}
+            />
+          ) : (
+            <p className="text-gray-500 italic">
+              No description content available.
+            </p>
+          )}
         </section>
 
         <p className="text-center text-gray-500 mt-12 text-sm font-serif italic">
@@ -125,27 +112,23 @@ export default function DocumentViewer() {
         </p>
       </div>
 
-      {/* Word Document Style */}
       <style jsx>{`
         .document-page {
           font-family: "Times New Roman", Times, serif;
           line-height: 1.6;
           color: #333;
-          box-sizing: border-box;
           min-height: 800px;
         }
         .document-paragraph {
           margin-bottom: 0.8em;
           text-indent: 0.5in;
         }
-        h1,
-        h2 {
+        .document-page h1,
+        .document-page h2,
+        .document-page h3 {
           font-family: "Arial", sans-serif;
           margin-top: 1.5em;
           margin-bottom: 0.5em;
-        }
-        h1.document-paragraph,
-        h2.document-paragraph {
           text-indent: 0;
         }
       `}</style>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Save, Trash2 } from "lucide-react";
+import { useEditorStore } from "@/store/useEditorStore";
 
 type Entry = {
   _id: string;
@@ -11,30 +12,48 @@ type Entry = {
 
 export default function WorkDesc() {
   const [savedEntries, setSavedEntries] = useState<Entry[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const savedSelection = useRef<Range | null>(null);
 
+  const descriptionHTML = useEditorStore((state) => state.descriptionHTML);
+  const setDescriptionHTML = useEditorStore(
+    (state) => state.setDescriptionHTML
+  );
+  const editingId = useEditorStore((state) => state.editingId);
+  const setEditingId = useEditorStore((state) => state.setEditingId);
+
+  const userId = "fixed_user_id_for_description";
+
   useEffect(() => {
-    const userId = "fixed_user_id_for_description";
-    fetch(`/api/description?userId=${userId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setSavedEntries(data);
-        else if (data.data && Array.isArray(data.data))
+    const fetchEntries = async () => {
+      try {
+        const res = await fetch(`/api/description?userId=${userId}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSavedEntries(data);
+        } else if (data.data && Array.isArray(data.data)) {
           setSavedEntries(data.data);
-        else {
+        } else {
           console.error("Unexpected response format:", data);
-          setSavedEntries([]);
         }
-      })
-      .catch(console.error);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    };
+
+    fetchEntries();
   }, []);
+
+  useEffect(() => {
+    if (editorRef.current && descriptionHTML !== editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = descriptionHTML || "";
+    }
+  }, [descriptionHTML]);
 
   const saveSelection = useCallback(() => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
-      savedSelection.current = sel.getRangeAt(0);
+      savedSelection.current = sel.getRangeAt(0).cloneRange();
     }
   }, []);
 
@@ -46,34 +65,30 @@ export default function WorkDesc() {
     }
   }, []);
 
-  const executeCommand = (command: string, value: string | null = null) => {
+  const executeCommand = (command: string) => {
     if (editorRef.current) {
       editorRef.current.focus();
-      restoreSelection();
     }
 
-    try {
-      if (command === "createLink") {
-        const url = prompt("Enter URL:");
-        if (url) {
-          document.execCommand("createLink", false, url);
+    restoreSelection();
 
-          // Add underline & blue color to the newly inserted link
-          const selection = window.getSelection();
-          if (
-            selection &&
-            selection.anchorNode?.parentElement?.tagName === "A"
-          ) {
-            const link = selection.anchorNode.parentElement;
-            link.style.color = "#1d4ed8"; // Tailwind blue-700
-            link.style.textDecoration = "underline";
-          }
+    if (command === "createLink") {
+      const url = prompt("Enter URL:");
+      if (url) {
+        document.execCommand("createLink", false, url);
+        const selection = window.getSelection();
+        if (selection?.anchorNode?.parentElement?.tagName === "A") {
+          const link = selection.anchorNode.parentElement;
+          link.style.color = "#1d4ed8";
+          link.style.textDecoration = "underline";
         }
-      } else {
-        document.execCommand(command, false, value);
       }
-    } catch (e) {
-      console.error("Command failed:", command, e);
+    } else {
+      document.execCommand(command, false, null);
+    }
+
+    if (editorRef.current) {
+      setDescriptionHTML(editorRef.current.innerHTML);
     }
 
     saveSelection();
@@ -81,12 +96,7 @@ export default function WorkDesc() {
 
   const handleSave = async () => {
     const content = editorRef.current?.innerHTML.trim();
-    if (!content) {
-      alert("Editor content is empty.");
-      return;
-    }
-
-    const userId = "fixed_user_id_for_description";
+    if (!content) return alert("Editor content is empty.");
 
     if (editingId) {
       const res = await fetch(`/api/description/${editingId}`, {
@@ -101,9 +111,8 @@ export default function WorkDesc() {
         );
         alert("Updated successfully!");
       } else {
-        alert("Failed to update: " + (data.error || "Unknown error"));
+        alert("Failed to update.");
       }
-      setEditingId(null);
     } else {
       const res = await fetch("/api/description", {
         method: "POST",
@@ -115,36 +124,41 @@ export default function WorkDesc() {
         setSavedEntries((prev) => [data.data, ...prev]);
         alert("Saved successfully!");
       } else {
-        alert("Failed to save: " + (data.error || "Unknown error"));
+        alert("Failed to save.");
       }
     }
 
+    setEditingId(null);
+    setDescriptionHTML("");
+    savedSelection.current = null;
     if (editorRef.current) editorRef.current.innerHTML = "";
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this?")) return;
+    if (!confirm("Are you sure?")) return;
 
     const res = await fetch(`/api/description/${id}`, { method: "DELETE" });
-    const result = await res.json();
-    if (result.success) {
-      setSavedEntries((prev) => prev.filter((entry) => entry._id !== id));
+    const data = await res.json();
+    if (data.success) {
+      setSavedEntries((prev) => prev.filter((e) => e._id !== id));
       if (editingId === id) {
         setEditingId(null);
+        setDescriptionHTML("");
         if (editorRef.current) editorRef.current.innerHTML = "";
       }
-      alert("Deleted successfully!");
+      alert("Deleted.");
     } else {
-      alert("Failed to delete: " + (result.error || "Unknown error"));
+      alert("Failed to delete.");
     }
   };
 
   const handleEdit = (entry: Entry) => {
+    setEditingId(entry._id);
+    setDescriptionHTML(entry.content);
     if (editorRef.current) {
       editorRef.current.innerHTML = entry.content;
       editorRef.current.focus();
     }
-    setEditingId(entry._id);
   };
 
   return (
@@ -172,7 +186,6 @@ export default function WorkDesc() {
           <button onClick={() => executeCommand("underline")} title="Underline">
             <i className="fas fa-underline px-2 py-1 border rounded-md" />
           </button>
-
           <button
             onClick={() => executeCommand("createLink")}
             title="Insert Link"
@@ -184,11 +197,23 @@ export default function WorkDesc() {
         {/* Editor */}
         <div
           ref={editorRef}
-          className="border border-gray-300 p-4 rounded-md min-h-[300px] bg-white text-gray-800 overflow-auto"
           contentEditable
+          suppressContentEditableWarning
           spellCheck={false}
-          onKeyUp={saveSelection}
+          onInput={() => {
+            saveSelection();
+            if (editorRef.current) {
+              setDescriptionHTML(editorRef.current.innerHTML);
+            }
+          }}
           onMouseUp={saveSelection}
+          onKeyUp={saveSelection}
+          className="border border-gray-300 p-4 rounded-md min-h-[300px] bg-white text-gray-800 overflow-auto"
+          style={{
+            direction: "ltr", // ✅ Force LTR typing
+            textAlign: "left", // ✅ Align text to left
+            unicodeBidi: "plaintext", // ✅ Fix bidirectional typing behavior
+          }}
         />
       </div>
 
@@ -224,7 +249,7 @@ export default function WorkDesc() {
         )}
       </div>
 
-      {/* FontAwesome */}
+      {/* FontAwesome CDN */}
       <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
