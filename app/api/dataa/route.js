@@ -70,39 +70,36 @@ export async function GET(request) {
 export async function DELETE(request) {
   try {
     await connectMongoDB();
-    const { id } = await request.json();
+
+    // Get the id from query params instead of body
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json(
-        { msg: "ID is required for deletion" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Missing ID" }, { status: 400 });
     }
 
-    const result = await VersionHistory.findByIdAndDelete(id);
-    if (!result) {
-      return NextResponse.json({ msg: "Data not found" }, { status: 404 });
-    }
-    return NextResponse.json({ msg: "Deleted successfully" }, { status: 200 });
-  } catch (error) {
-    console.error("Error in /api/dataa DELETE handler:", error);
+    await VersionHistory.findByIdAndDelete(id);
     return NextResponse.json(
-      { msg: "Server error", error: error.message },
+      { message: "Entry deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting entry:", error);
+    return NextResponse.json(
+      { message: "Server error", error },
       { status: 500 }
     );
   }
 }
-
 // PUT: Update version history by ID (now allows empty fields)
 export async function PUT(request) {
   try {
     await connectMongoDB();
-    // Destructure all potential fields from the request body.
-    // If a field is not sent in the body, it will be `undefined`.
-    // If a field is sent as an empty string, it will be `""`.
-    const { id, date, name, update } = await request.json();
 
-    if (!id) {
+    const { _id, date, name, update } = await request.json();
+
+    if (!_id) {
       // Only check for the ID, as other fields are now allowed to be empty or missing
       return NextResponse.json(
         { msg: "ID is required for update" },
@@ -110,9 +107,6 @@ export async function PUT(request) {
       );
     }
 
-    // Construct an update object containing only the fields that were explicitly provided
-    // in the request body. This ensures that if a field is *not* sent, it's not updated,
-    // and if it's sent as an empty string, it *is* updated to an empty string.
     const updateFields = {};
     if (date !== undefined) updateFields.date = date;
     if (name !== undefined) updateFields.name = name;
@@ -123,7 +117,7 @@ export async function PUT(request) {
     // { runValidators: true } will run schema validators, but since 'required' is removed,
     // empty strings will pass validation.
     const result = await VersionHistory.findByIdAndUpdate(
-      id,
+      _id,
       updateFields, // Pass only the fields that were provided in the request
       { new: true, runValidators: true }
     );

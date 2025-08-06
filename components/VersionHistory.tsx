@@ -11,19 +11,21 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useData } from "@/contexts/DataContext";
-import { useCombinedData } from "@/contexts/CombinedDataContext";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  setVersionHistory,
+  addVersionEntry,
+  updateVersionEntry,
+  removeVersionEntry,
+  setEditingId,
+} from "@/store/versionSlice";
 
 export default function VersionHistory() {
-  const { globalData, addData, deleteData, editData } = useData();
-  const { saveCombinedData, isCombinedSaving } = useCombinedData();
+  const dispatch = useDispatch();
 
-  const [inputRow, setInputRow] = useState([
-    { date: "", name: "", update: "" },
-    { date: "", name: "", update: "" },
-  ]);
+  const versionHistory = useSelector((state) => state.version.versionHistory);
+  const editingId = useSelector((state) => state.version.editingId);
 
-  const [activeEditCell, setActiveEditCell] = useState(null);
   const [editFormData, setEditFormData] = useState({
     _id: "",
     date: "",
@@ -31,8 +33,29 @@ export default function VersionHistory() {
     update: "",
   });
 
+  const [inputRow, setInputRow] = useState([
+    { date: "", name: "", update: "" },
+    { date: "", name: "", update: "" },
+  ]);
+
+  const [activeEditCell, setActiveEditCell] = useState(null);
   const [shouldFocusNewRow, setShouldFocusNewRow] = useState(false);
   const firstNewInputRef = useRef(null);
+
+  // Fetch data on mount and load into redux store
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch("/api/dataa");
+        if (!res.ok) throw new Error("Failed to fetch data");
+        const data = await res.json();
+        dispatch(setVersionHistory(data));
+      } catch (error) {
+        console.error("Error loading version history data:", error);
+      }
+    }
+    fetchData();
+  }, [dispatch]);
 
   useEffect(() => {
     if (shouldFocusNewRow && firstNewInputRef.current) {
@@ -41,50 +64,77 @@ export default function VersionHistory() {
     }
   }, [shouldFocusNewRow]);
 
+  const handleCellClick = (rowId, field) => {
+    const rowToEdit = versionHistory.find((row) => row._id === rowId);
+    if (rowToEdit) {
+      setEditFormData({ ...rowToEdit });
+      setActiveEditCell({ id: rowId, field });
+      dispatch(setEditingId(rowId));
+    }
+  };
+
   const handleEditChange = (field, value) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCellClick = (rowId, field) => {
-    const rowToEdit = globalData.find((row) => row._id === rowId);
-    if (rowToEdit) {
-      setEditFormData({ ...rowToEdit }); // include _id
-      setActiveEditCell({ id: rowId, field });
-    }
-  };
-
   const handleInputBlur = async (rowId, field) => {
     setActiveEditCell(null);
-    const originalRow = globalData.find((row) => row._id === rowId);
+    dispatch(setEditingId(null));
+
+    const originalEntry = versionHistory.find((entry) => entry._id === rowId);
     const currentValue = editFormData[field];
 
-    // If all fields are empty, delete
-    if (!editFormData.date && !editFormData.name && !editFormData.update) {
-      await deleteData(rowId);
+    const isAllEmpty =
+      !editFormData.date.trim() &&
+      !editFormData.name.trim() &&
+      !editFormData.update.trim();
+
+    if (isAllEmpty) {
+      dispatch(removeVersionEntry(rowId));
+
+      //  DELETE API call
+      try {
+        await fetch(`/api/dataa?id=${rowId}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error("Failed to delete entry on backend:", error);
+      }
+
       return;
     }
 
-    // If data has changed, update it fully
-    if (originalRow && originalRow[field] !== currentValue) {
-      const updatedItem = {
+    if (originalEntry && originalEntry[field].trim() !== currentValue.trim()) {
+      const updatedEntry = {
         _id: rowId,
-        date: editFormData.date,
-        name: editFormData.name,
-        update: editFormData.update,
+        date: editFormData.date || "",
+        name: editFormData.name || "",
+        update: editFormData.update || "",
       };
-      await editData(rowId, updatedItem);
+
+      dispatch(updateVersionEntry(updatedEntry));
+
+      try {
+        await fetch(`/api/dataa`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedEntry),
+        });
+      } catch (error) {
+        console.error("Failed to update entry on backend:", error);
+      }
     }
   };
 
   const handleInputChange = (index, field, value) => {
     const updated = [...inputRow];
     updated[index][field] = value;
-
     setInputRow(updated);
 
     const lastTwo = updated.slice(-2);
     const anyFilled = lastTwo.some((row) => row.date || row.name || row.update);
-
     if (anyFilled) {
       setInputRow([...updated, { date: "", name: "", update: "" }]);
     }
@@ -94,14 +144,26 @@ export default function VersionHistory() {
     const currentRow = inputRow[index];
     if (!currentRow.date || !currentRow.name || !currentRow.update) return;
 
-    const dataToSubmit = {
+    const newEntry = {
+      _id: String(Date.now()),
       date: currentRow.date,
       name: currentRow.name,
       update: currentRow.update,
     };
 
     try {
-      await addData(dataToSubmit);
+      dispatch(addVersionEntry(newEntry));
+
+      const res = await fetch("/api/dataa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEntry),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to add new entry on backend");
+      }
+
       setInputRow([
         { date: "", name: "", update: "" },
         { date: "", name: "", update: "" },
@@ -109,24 +171,12 @@ export default function VersionHistory() {
       setShouldFocusNewRow(true);
     } catch (error) {
       console.error("Failed to add new entry:", error);
+      alert("Error adding new entry: " + error.message);
     }
-  };
-
-  const handleSaveCombinedData = async () => {
-    const dataToSave = {
-      versionHistorySnapshot: globalData,
-    };
-    await saveCombinedData(dataToSave);
   };
 
   return (
     <div className="p-4">
-      <div className="flex justify-end mb-4">
-        <Button onClick={handleSaveCombinedData} disabled={isCombinedSaving}>
-          {isCombinedSaving ? "Saving Combined Data..." : "Save Combined Data"}
-        </Button>
-      </div>
-
       <Table>
         <TableHeader>
           <TableRow>
@@ -135,53 +185,32 @@ export default function VersionHistory() {
             <TableHead>Update</TableHead>
           </TableRow>
         </TableHeader>
+
         <TableBody>
-          {globalData.map((row) => (
+          {versionHistory.map((row) => (
             <TableRow key={row._id}>
-              <TableCell onClick={() => handleCellClick(row._id, "date")}>
-                {activeEditCell?.id === row._id &&
-                activeEditCell?.field === "date" ? (
-                  <Input
-                    type="date"
-                    value={editFormData.date}
-                    onChange={(e) => handleEditChange("date", e.target.value)}
-                    onBlur={() => handleInputBlur(row._id, "date")}
-                    autoFocus
-                  />
-                ) : (
-                  row.date
-                )}
-              </TableCell>
-              <TableCell onClick={() => handleCellClick(row._id, "name")}>
-                {activeEditCell?.id === row._id &&
-                activeEditCell?.field === "name" ? (
-                  <Input
-                    value={editFormData.name}
-                    onChange={(e) => handleEditChange("name", e.target.value)}
-                    onBlur={() => handleInputBlur(row._id, "name")}
-                    autoFocus
-                  />
-                ) : (
-                  row.name
-                )}
-              </TableCell>
-              <TableCell onClick={() => handleCellClick(row._id, "update")}>
-                {activeEditCell?.id === row._id &&
-                activeEditCell?.field === "update" ? (
-                  <Input
-                    value={editFormData.update}
-                    onChange={(e) => handleEditChange("update", e.target.value)}
-                    onBlur={() => handleInputBlur(row._id, "update")}
-                    autoFocus
-                  />
-                ) : (
-                  row.update
-                )}
-              </TableCell>
+              {["date", "name", "update"].map((field) => (
+                <TableCell
+                  key={field}
+                  onClick={() => handleCellClick(row._id, field)}
+                >
+                  {activeEditCell?.id === row._id &&
+                  activeEditCell.field === field ? (
+                    <Input
+                      type={field === "date" ? "date" : "text"}
+                      value={editFormData[field] || ""}
+                      onChange={(e) => handleEditChange(field, e.target.value)}
+                      onBlur={() => handleInputBlur(row._id, field)}
+                      autoFocus
+                    />
+                  ) : (
+                    row[field]
+                  )}
+                </TableCell>
+              ))}
             </TableRow>
           ))}
 
-          {/* Input rows */}
           {inputRow.map((row, index) => (
             <TableRow key={`input-${index}`}>
               <TableCell>

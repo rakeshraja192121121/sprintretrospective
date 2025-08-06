@@ -1,4 +1,4 @@
-import Image from "next/image";
+
 export default function Header() {
   return (
     <div className="relative flex items-center px-4 py-2 font-bold min-w-[1200px]">

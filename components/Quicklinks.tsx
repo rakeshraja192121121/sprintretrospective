@@ -1,26 +1,39 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { setLinks, updateLink } from "../store/quicklinkSlice";
 
 export default function QuickLinks() {
-  const [links, setLinks] = useState([
-    { name: "", link: "" },
-    { name: "", link: "" },
-  ]);
+  const links = useSelector((state) => state.quickLinks);
+  const dispatch = useDispatch();
 
+  // Initialize from localStorage or fallback to default empty links on mount
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("quickLinks"));
-    if (saved)
-      setLinks([...saved, { name: "", link: "" }, { name: "", link: "" }]);
-  }, []);
+    if (saved && saved.length > 0) {
+      dispatch(
+        setLinks([...saved, { name: "", link: "" }, { name: "", link: "" }])
+      );
+    } else {
+      dispatch(
+        setLinks([
+          { name: "", link: "" },
+          { name: "", link: "" },
+        ])
+      );
+    }
+  }, [dispatch]);
 
+  // Save updated links to localStorage whenever links in Redux change
   useEffect(() => {
     const filled = links.filter((l) => l.name || l.link);
     localStorage.setItem("quickLinks", JSON.stringify(filled));
   }, [links]);
 
+  // This function updates a field in a particular link and keeps empty slots intact
   const handleChange = (index, field, value) => {
     const updated = [...links];
-    updated[index][field] = value;
+    updated[index] = { ...updated[index], [field]: value };
 
     const cleaned = updated.filter((item) => item.name || item.link);
     while (
@@ -30,14 +43,15 @@ export default function QuickLinks() {
       cleaned.push({ name: "", link: "" });
     }
 
-    setLinks(cleaned);
+    dispatch(setLinks(cleaned));
   };
 
+  // Optional: onBlur cleaning similarly ensures trailing empty rows
   const handleBlur = () => {
     const filtered = links.filter(
       (item, index) => item.name || item.link || index >= links.length - 2
     );
-    setLinks(filtered);
+    dispatch(setLinks(filtered));
   };
 
   return (
