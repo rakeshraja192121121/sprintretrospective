@@ -4,11 +4,11 @@ import React, { useEffect, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+// import {
+//   Popover,
+//   PopoverContent,
+//   PopoverTrigger,
+// } from "@/components/ui/popover";
 
 import {
   setDescriptions,
@@ -193,7 +193,7 @@ export default function WorkDesc() {
   const insertGridTable = () => {
     const colsStr = prompt("Enter number of columns (max 10):", "3");
     if (!colsStr) return;
-    let cols = Math.min(Math.max(Number(colsStr), 1), 10);
+    const cols = Math.min(Math.max(Number(colsStr), 1), 10);
     if (isNaN(cols)) {
       alert("Please enter a valid number for columns.");
       return;
@@ -203,7 +203,7 @@ export default function WorkDesc() {
       "3"
     );
     if (!rowsStr) return;
-    let rows = Math.min(Math.max(Number(rowsStr), 1), 10);
+    const rows = Math.min(Math.max(Number(rowsStr), 1), 10);
     if (isNaN(rows)) {
       alert("Please enter a valid number for rows.");
       return;
