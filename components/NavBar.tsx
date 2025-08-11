@@ -2,12 +2,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import clsx from "clsx";
 import { useSelector } from "react-redux";
 
 function NavBar() {
   const pathname = usePathname();
+  const params = useParams();
+
+  const id = params?.id; // Dynamic PRD ID from URL
 
   // Redux state
   const version = useSelector((state: any) => state.version.versionHistory);
@@ -18,42 +21,45 @@ function NavBar() {
   const navItems = [
     {
       label: "Version History",
-      href: "/PRD/versionHistory",
+      path: "versionHistory",
       isEmpty: version.length === 0,
     },
     {
       label: "Quick Links",
-      href: "/PRD/QuickLinks",
+      path: "QuickLinks",
       isEmpty: quickLinks.every(
         (item) => !item.link.trim() || !item.name.trim()
       ),
     },
     {
       label: "Introduction",
-      href: "/PRD/Introduction",
+      path: "Introduction",
       isEmpty: true,
     },
     {
       label: "Description Of Work",
-      href: "/PRD/descriptionofwork",
+      path: "descriptionofwork",
       isEmpty: editor.length === 0,
     },
     {
       label: "Stakeholder",
-      href: "/PRD/StakeHolder",
+      path: "StakeHolder",
       isEmpty: stakeholders.every((item) => !item.role || !item.name),
     },
     {
       label: "Analytics",
-      href: "/PRD/Analytics",
+      path: "Analytics",
       isEmpty: true, // backend not ready
     },
     {
       label: "UI / UX Mocks",
-      href: "/PRD/UIUXMocks",
+      path: "UIUXMocks",
       isEmpty: true, // backend not ready
     },
   ];
+
+  // If ID is not available yet, don't render the nav
+  if (!id) return null;
 
   return (
     <nav className="bg-gray-800 text-white dark:bg-gray-700">
@@ -61,23 +67,23 @@ function NavBar() {
         <div className="flex items-center justify-between">
           <ul className="flex flex-row font-medium mt-0 space-x-4 text-sm">
             {navItems.map((item) => {
-              const borderColor = item.isEmpty
-                ? "border-t-4 border-red-500"
-                : "border-t-4 border-green-500";
+              const href = `/PRD/${id}/${item.path}`;
+              const labelWithStar = item.isEmpty
+                ? `${item.label} *`
+                : item.label;
 
               return (
-                <li key={item.href}>
+                <li key={href}>
                   <Link
-                    href={item.href}
+                    href={href}
                     className={clsx(
                       "px-3 py-1 rounded-md",
-                      borderColor,
-                      pathname === item.href
+                      pathname === href
                         ? "bg-amber-50 text-black"
                         : "hover:bg-gray-600"
                     )}
                   >
-                    {item.label}
+                    {labelWithStar}
                   </Link>
                 </li>
               );

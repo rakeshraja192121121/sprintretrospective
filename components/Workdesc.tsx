@@ -5,6 +5,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import {
   setDescriptions,
   addDescription,
   updateDescription,
@@ -463,7 +469,6 @@ export default function WorkDesc() {
           )}
           <div className="space-y-4 max-h-96 overflow-y-auto overflow-x-auto pb-2">
             {descriptions.map((desc: Entry) => {
-              // Conditionally add 'saved-content-display' class only if table-grid exists
               const containsTable = desc.content.includes('class="table-grid"');
               return (
                 <article
@@ -506,7 +511,6 @@ export default function WorkDesc() {
         </section>
       </div>
 
-      {/* Global styles targeting elements inside contentEditable so borders/styles apply inside */}
       <style jsx global>{`
         .btn-primary {
           display: inline-flex;

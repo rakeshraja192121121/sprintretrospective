@@ -52,7 +52,7 @@ export async function POST(request) {
 }
 
 // GET: Fetch all version entries
-export async function GET(request) {
+export async function GET() {
   try {
     await connectMongoDB();
     const data = await VersionHistory.find();

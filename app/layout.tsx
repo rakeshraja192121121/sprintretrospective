@@ -4,6 +4,7 @@ import "./globals.css";
 import Image from "next/image";
 import Tab from "@/components/Tab";
 import { ClientProviders } from "@/components/ClientProviders";
+import { inter } from "@/components/ui/fonts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,7 @@ export default function rootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.className} antialiased ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <div className="flex flex-row m-3">
           <a href="https://www.turbify.com" aria-label="Turbify">

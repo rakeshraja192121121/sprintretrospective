@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { setLinks, updateLink } from "../store/quicklinkSlice";
+import { setLinks } from "../store/quicklinkSlice";
 
 export default function QuickLinks() {
   const links = useSelector((state) => state.quickLinks);

@@ -29,7 +29,7 @@ export async function POST(req) {
 }
 
 // GET handler - fetch all descriptions, no filtering
-export async function GET(req) {
+export async function GET() {
   try {
     await connectMongoDB();
 
