@@ -62,7 +62,7 @@ function NavBar() {
   if (!id) return null;
 
   return (
-    <nav className="bg-gray-800 text-white dark:bg-gray-700">
+    <nav className="  bg-gray-800 text-white dark:bg-gray-700">
       <div className="max-w-screen-xl px-4 py-3 mx-auto">
         <div className="flex items-center justify-between">
           <ul className="flex flex-row font-medium mt-0 space-x-4 text-sm">

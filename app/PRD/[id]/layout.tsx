@@ -52,16 +52,18 @@ export default function PRDLayout({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
       <div className="flex flex-col min-h-screen">
-        {!mobile && <NavBar />}
+        <div>
+          {!mobile && <NavBar />}
 
-        <div className="flex justify-end px-4 py-2 dark:bg-gray-800">
-          <button
-            onClick={handlePreviewClick}
-            title="Preview Document"
-            className="flex items-center gap-1 px-3 py-1 rounded-md text-sm bg-blue-950 font-medium text-white dark:bg-gray-700 hover:bg-blue-700 dark:hover:bg-gray-600 transition"
-          >
-            <Eye size={18} />
-          </button>
+          <div className="flex justify-end px-4 py-2 dark:bg-gray-800">
+            <button
+              onClick={handlePreviewClick}
+              title="Preview Document"
+              className="flex items-center gap-1 px-3 py-1 rounded-md text-sm bg-blue-950 font-medium text-white dark:bg-gray-700 hover:bg-blue-700 dark:hover:bg-gray-600 transition"
+            >
+              <Eye size={18} />
+            </button>
+          </div>
         </div>
 
         <main className="flex-grow p-4  ">{children}</main>

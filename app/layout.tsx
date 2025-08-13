@@ -31,14 +31,14 @@ export default function rootLayout({
       <body
         className={`${inter.className} antialiased ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex flex-row m-3">
+        <div className=" sticky top-0 z-999 w-full flex flex-row  border-b-1 bg-white">
           <a href="https://www.turbify.com" aria-label="Turbify">
             <Image
               src="https://sep.turbifycdn.com/nrp/image/turbify/newturbifylogo.png"
               alt="Turbify"
               width={100}
               height={40}
-              className="shrink-0 h-10 w-auto object-contain"
+              className="shrink-0 h-10 w-auto object-contain m-2"
             />
           </a>
           <Tab />

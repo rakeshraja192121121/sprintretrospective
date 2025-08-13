@@ -34,7 +34,8 @@
     "pages/api/sprints.js",
     "pages/api/note.js",
     "models/next.js",
-    "lib/mongodb.js"
+    "lib/mongodb.js",
+    "app/api/prd/route.js"
   ],
   "exclude": ["node_modules"]
 }
