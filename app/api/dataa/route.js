@@ -2,17 +2,16 @@
 import { NextResponse } from "next/server";
 import connectMongoDB from "@/lib/mongodb";
 import VersionHistory from "@/models/version";
+import mongoose from "mongoose";
 
-// POST: Save new version entry (still requires all fields for new entries)
 export async function POST(request) {
   try {
     await connectMongoDB();
     const newData = await request.json();
 
-    const { date, name, update } = newData;
+    const { workspaceId, date, name, update } = newData;
 
-    // Keep validation for new entries: All fields must be present and non-empty
-    if (!date || !name || !update) {
+    if (!workspaceId || !date || !name || !update) {
       return NextResponse.json(
         { msg: "All fields are required (date, name, update) for new entries" },
         { status: 400 }
@@ -20,6 +19,7 @@ export async function POST(request) {
     }
 
     await VersionHistory.create({
+      workspaceId: new mongoose.Types.ObjectId(workspaceId),
       date,
       name,
       update,
@@ -52,18 +52,17 @@ export async function POST(request) {
 }
 
 // GET: Fetch all version entries
-export async function GET() {
-  try {
-    await connectMongoDB();
-    const data = await VersionHistory.find();
-    return NextResponse.json(data, { status: 200 });
-  } catch (error) {
-    console.error("Error in /api/dataa GET handler:", error);
-    return NextResponse.json(
-      { msg: "Failed to fetch data", error: error.message },
-      { status: 500 }
-    );
-  }
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const workspaceId = searchParams.get("workspaceId");
+
+  await connectMongoDB();
+
+  const validWorkspaceId = new mongoose.Types.ObjectId(workspaceId);
+
+  const data = await VersionHistory.find({ workspaceId: validWorkspaceId });
+
+  return NextResponse.json(data, { status: 200 });
 }
 
 // DELETE: Delete version history by ID

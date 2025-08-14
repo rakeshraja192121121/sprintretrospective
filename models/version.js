@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const versionHistorySchema = new mongoose.Schema({
+  workspaceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "workspace",
+    required: true,
+  },
   date: {
     type: String,
   },

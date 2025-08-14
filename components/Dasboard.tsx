@@ -155,7 +155,7 @@ export default function PRDDashboard() {
 
   return (
     <>
-      <div className=" fixed  ">
+      <div>
         <h1 className=" flex justify-between p-4 text-xl font-bold mb-6 text-black">
           Project Requirement Documents
           <Button

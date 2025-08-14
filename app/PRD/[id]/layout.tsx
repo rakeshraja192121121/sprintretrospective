@@ -66,7 +66,7 @@ export default function PRDLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <main className="flex-grow p-4  ">{children}</main>
+        <main className="flex-grow p-4   ">{children}</main>
       </div>
     </Provider>
   );

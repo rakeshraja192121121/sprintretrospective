@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -10,7 +11,6 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useSelector, useDispatch } from "react-redux";
 import {
   setVersionHistory,
@@ -22,8 +22,12 @@ import {
 
 export default function VersionHistory() {
   const dispatch = useDispatch();
+  const { id } = useParams();
+  const workspaceId = id;
 
-  const versionHistory = useSelector((state) => state.version.versionHistory);
+  const versionHistory = useSelector(
+    (state) => state.version.versionHistory || []
+  );
   const editingId = useSelector((state) => state.version.editingId);
 
   const [editFormData, setEditFormData] = useState({
@@ -41,21 +45,22 @@ export default function VersionHistory() {
   const [activeEditCell, setActiveEditCell] = useState(null);
   const [shouldFocusNewRow, setShouldFocusNewRow] = useState(false);
   const firstNewInputRef = useRef(null);
+  const [typingTimeouts, setTypingTimeouts] = useState({});
 
-  // Fetch data on mount and load into redux store
   useEffect(() => {
+    if (!workspaceId) return;
     async function fetchData() {
       try {
-        const res = await fetch("/api/dataa");
+        const res = await fetch(`/api/dataa?workspaceId=${workspaceId}`);
         if (!res.ok) throw new Error("Failed to fetch data");
         const data = await res.json();
-        dispatch(setVersionHistory(data));
+        dispatch(setVersionHistory(Array.isArray(data) ? data : []));
       } catch (error) {
         console.error("Error loading version history data:", error);
       }
     }
     fetchData();
-  }, [dispatch]);
+  }, [dispatch, workspaceId]);
 
   useEffect(() => {
     if (shouldFocusNewRow && firstNewInputRef.current) {
@@ -65,7 +70,7 @@ export default function VersionHistory() {
   }, [shouldFocusNewRow]);
 
   const handleCellClick = (rowId, field) => {
-    const rowToEdit = versionHistory.find((row) => row._id === rowId);
+    const rowToEdit = versionHistory.find((row) => row?._id === rowId);
     if (rowToEdit) {
       setEditFormData({ ...rowToEdit });
       setActiveEditCell({ id: rowId, field });
@@ -77,53 +82,46 @@ export default function VersionHistory() {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleInputBlur = async (rowId, field) => {
-    setActiveEditCell(null);
-    dispatch(setEditingId(null));
-
-    const originalEntry = versionHistory.find((entry) => entry._id === rowId);
-    const currentValue = editFormData[field];
-
-    const isAllEmpty =
-      !editFormData.date.trim() &&
-      !editFormData.name.trim() &&
-      !editFormData.update.trim();
-
-    if (isAllEmpty) {
-      dispatch(removeVersionEntry(rowId));
-
-      //  DELETE API call
-      try {
-        await fetch(`/api/dataa?id=${rowId}`, {
-          method: "DELETE",
-        });
-      } catch (error) {
-        console.error("Failed to delete entry on backend:", error);
+  const handleInputBlur = (indexOrId, field) => {
+    if (typeof indexOrId === "number") {
+      if (typingTimeouts[indexOrId]) clearTimeout(typingTimeouts[indexOrId]);
+      handleAddNewEntry(indexOrId);
+    } else {
+      const rowId = indexOrId;
+      setActiveEditCell(null);
+      dispatch(setEditingId(null));
+      const originalEntry = versionHistory.find(
+        (entry) => entry?._id === rowId
+      );
+      const currentValue = editFormData[field];
+      const isAllEmpty =
+        !editFormData.date.trim() &&
+        !editFormData.name.trim() &&
+        !editFormData.update.trim();
+      if (isAllEmpty) {
+        dispatch(removeVersionEntry(rowId));
+        fetch(`/api/dataa?id=${rowId}`, { method: "DELETE" }).catch((err) =>
+          console.error("Failed to delete entry:", err)
+        );
+        return;
       }
-
-      return;
-    }
-
-    if (originalEntry && originalEntry[field].trim() !== currentValue.trim()) {
-      const updatedEntry = {
-        _id: rowId,
-        date: editFormData.date || "",
-        name: editFormData.name || "",
-        update: editFormData.update || "",
-      };
-
-      dispatch(updateVersionEntry(updatedEntry));
-
-      try {
-        await fetch(`/api/dataa`, {
+      if (
+        originalEntry &&
+        originalEntry[field]?.trim() !== currentValue.trim()
+      ) {
+        const updatedEntry = {
+          workspaceId,
+          _id: rowId,
+          date: editFormData.date || "",
+          name: editFormData.name || "",
+          update: editFormData.update || "",
+        };
+        dispatch(updateVersionEntry(updatedEntry));
+        fetch(`/api/dataa`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedEntry),
-        });
-      } catch (error) {
-        console.error("Failed to update entry on backend:", error);
+        }).catch((err) => console.error("Failed to update:", err));
       }
     }
   };
@@ -132,38 +130,34 @@ export default function VersionHistory() {
     const updated = [...inputRow];
     updated[index][field] = value;
     setInputRow(updated);
-
+    if (typingTimeouts[index]) clearTimeout(typingTimeouts[index]);
+    const timeoutId = setTimeout(() => {
+      handleAddNewEntry(index);
+    }, 5000);
+    setTypingTimeouts((prev) => ({ ...prev, [index]: timeoutId }));
     const lastTwo = updated.slice(-2);
     const anyFilled = lastTwo.some((row) => row.date || row.name || row.update);
-    if (anyFilled) {
+    if (anyFilled)
       setInputRow([...updated, { date: "", name: "", update: "" }]);
-    }
   };
 
   const handleAddNewEntry = async (index) => {
     const currentRow = inputRow[index];
     if (!currentRow.date || !currentRow.name || !currentRow.update) return;
-
     const newEntry = {
-      _id: String(Date.now()),
+      workspaceId,
       date: currentRow.date,
       name: currentRow.name,
       update: currentRow.update,
     };
-
     try {
       dispatch(addVersionEntry(newEntry));
-
       const res = await fetch("/api/dataa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEntry),
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to add new entry on backend");
-      }
-
+      if (!res.ok) throw new Error("Failed to add new entry");
       setInputRow([
         { date: "", name: "", update: "" },
         { date: "", name: "", update: "" },
@@ -171,7 +165,6 @@ export default function VersionHistory() {
       setShouldFocusNewRow(true);
     } catch (error) {
       console.error("Failed to add new entry:", error);
-      alert("Error adding new entry: " + error.message);
     }
   };
 
@@ -185,32 +178,34 @@ export default function VersionHistory() {
             <TableHead>Update</TableHead>
           </TableRow>
         </TableHeader>
-
         <TableBody>
-          {versionHistory.map((row) => (
-            <TableRow key={row._id}>
-              {["date", "name", "update"].map((field) => (
-                <TableCell
-                  key={field}
-                  onClick={() => handleCellClick(row._id, field)}
-                >
-                  {activeEditCell?.id === row._id &&
-                  activeEditCell.field === field ? (
-                    <Input
-                      type={field === "date" ? "date" : "text"}
-                      value={editFormData[field] || ""}
-                      onChange={(e) => handleEditChange(field, e.target.value)}
-                      onBlur={() => handleInputBlur(row._id, field)}
-                      autoFocus
-                    />
-                  ) : (
-                    row[field]
-                  )}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-
+          {versionHistory
+            .filter((row) => row != null)
+            .map((row) => (
+              <TableRow key={row._id}>
+                {["date", "name", "update"].map((field) => (
+                  <TableCell
+                    key={`${row._id}-${field}`}
+                    onClick={() => handleCellClick(row._id, field)}
+                  >
+                    {activeEditCell?.id === row._id &&
+                    activeEditCell?.field === field ? (
+                      <Input
+                        type={field === "date" ? "date" : "text"}
+                        value={editFormData[field] || ""}
+                        onChange={(e) =>
+                          handleEditChange(field, e.target.value)
+                        }
+                        onBlur={() => handleInputBlur(row._id, field)}
+                        autoFocus
+                      />
+                    ) : (
+                      row?.[field] || ""
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
           {inputRow.map((row, index) => (
             <TableRow key={`input-${index}`}>
               <TableCell>
@@ -220,6 +215,7 @@ export default function VersionHistory() {
                   onChange={(e) =>
                     handleInputChange(index, "date", e.target.value)
                   }
+                  onBlur={() => handleInputBlur(index)}
                   ref={index === 0 ? firstNewInputRef : null}
                 />
               </TableCell>
@@ -229,6 +225,7 @@ export default function VersionHistory() {
                   onChange={(e) =>
                     handleInputChange(index, "name", e.target.value)
                   }
+                  onBlur={() => handleInputBlur(index)}
                 />
               </TableCell>
               <TableCell>
@@ -237,6 +234,7 @@ export default function VersionHistory() {
                   onChange={(e) =>
                     handleInputChange(index, "update", e.target.value)
                   }
+                  onBlur={() => handleInputBlur(index)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleAddNewEntry(index);

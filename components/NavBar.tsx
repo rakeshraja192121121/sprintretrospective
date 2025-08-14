@@ -1,22 +1,33 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import clsx from "clsx";
-import { useSelector } from "react-redux";
 
 function NavBar() {
   const pathname = usePathname();
   const params = useParams();
+  const id = params?.id;
 
-  const id = params?.id; // Dynamic PRD ID from URL
-
-  // Redux state
   const version = useSelector((state: any) => state.version.versionHistory);
   const quickLinks = useSelector((state: any) => state.quickLinks);
   const editor = useSelector((state: any) => state.editor.descriptions);
   const stakeholders = useSelector((state: any) => state.stakeholders);
+
+  // Local state for fetched custom pages
+  const [customPages, setCustomPages] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [newPageTitle, setNewPageTitle] = useState("");
+
+  // Fetch dynamic pages from MongoDB on mount
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/tabs?projectId=${id}`)
+      .then((res) => res.json())
+      .then((data) => setCustomPages(data))
+      .catch((err) => console.error("Error fetching tabs:", err));
+  }, [id]);
 
   const navItems = [
     {
@@ -28,7 +39,7 @@ function NavBar() {
       label: "Quick Links",
       path: "QuickLinks",
       isEmpty: quickLinks.every(
-        (item) => !item.link.trim() || !item.name.trim()
+        (item) => !item.link?.trim() || !item.name?.trim()
       ),
     },
     {
@@ -49,49 +60,124 @@ function NavBar() {
     {
       label: "Analytics",
       path: "Analytics",
-      isEmpty: true, // backend not ready
+      isEmpty: true,
     },
     {
       label: "UI / UX Mocks",
       path: "UIUXMocks",
-      isEmpty: true, // backend not ready
+      isEmpty: true,
     },
+
+    ...customPages.map((page) => ({
+      label: page.label,
+      path: page.path,
+      isEmpty: false,
+    })),
   ];
 
-  // If ID is not available yet, don't render the nav
   if (!id) return null;
 
-  return (
-    <nav className="  bg-gray-800 text-white dark:bg-gray-700">
-      <div className="max-w-screen-xl px-4 py-3 mx-auto">
-        <div className="flex items-center justify-between">
-          <ul className="flex flex-row font-medium mt-0 space-x-4 text-sm">
-            {navItems.map((item) => {
-              const href = `/PRD/${id}/${item.path}`;
-              const labelWithStar = item.isEmpty
-                ? `${item.label} *`
-                : item.label;
+  const handleAddPage = async () => {
+    if (!newPageTitle.trim()) return;
+    const slug = newPageTitle.replace(/\s+/g, "_");
 
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={clsx(
-                      "px-3 py-1 rounded-md",
-                      pathname === href
-                        ? "bg-amber-50 text-black"
-                        : "hover:bg-gray-600"
-                    )}
-                  >
-                    {labelWithStar}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+    try {
+      const res = await fetch("/api/tabs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newPageTitle,
+          path: slug,
+          projectId: id,
+        }),
+      });
+
+      if (res.ok) {
+        const savedPage = await res.json();
+        setCustomPages((prev) => [...prev, savedPage]);
+        setShowModal(false);
+        setNewPageTitle("");
+      } else {
+        console.error("Failed to add page");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[9999]">
+      <div className="bg-white text-black  p-6 rounded shadow-md w-96">
+        <h2 className="text-lg font-bold mb-4">Create New Page</h2>
+        <input
+          type="text"
+          value={newPageTitle}
+          onChange={(e) => setNewPageTitle(e.target.value)}
+          placeholder="Enter page title"
+          className="border p-2 w-full mb-4"
+        />
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={() => setShowModal(false)}
+            className="bg-gray-300 px-4 py-1 rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAddPage}
+            className="bg-blue-500 text-white px-4 py-1 rounded"
+          >
+            Add
+          </button>
         </div>
       </div>
-    </nav>
+    </div>
+  );
+
+  return (
+    <>
+      <nav className="bg-gray-800 text-white dark:bg-gray-700">
+        <div className="max-w-screen-xl px-4 py-3 mx-auto">
+          <div className="flex items-center justify-between">
+            <ul className="flex flex-row font-medium mt-0 space-x-4 text-sm">
+              {navItems.map((item) => {
+                const href = `/PRD/${id}/${item.path}`;
+                const labelWithStar = item.isEmpty
+                  ? `${item.label} *`
+                  : item.label;
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={
+                        "px-3 py-1 rounded-md " +
+                        (pathname === href
+                          ? "bg-amber-50 text-black"
+                          : "hover:bg-gray-600")
+                      }
+                    >
+                      {labelWithStar}
+                    </Link>
+                  </li>
+                );
+              })}
+
+              {/* Plus Button */}
+              <li>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="px-2  bg-white text-black rounded-md hover:bg-amber-50"
+                >
+                  +
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <div>{showModal && modalContent}</div>
+    </>
   );
 }
 
