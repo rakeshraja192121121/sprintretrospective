@@ -6,6 +6,7 @@ export default function TabNavigation() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Define tabs with unique paths
   const tabs = [
     { label: "Projects", path: "/project" },
     { label: "PRD", path: "/PRD" },
@@ -14,24 +15,25 @@ export default function TabNavigation() {
   ];
 
   return (
-    <div className="flex gap-2 p-2 ml-3   border-gray-200">
+    <nav className="flex gap-2 p-2 ml-3 border border-gray-200 rounded-md bg-white">
       {tabs.map((tab) => {
         const isActive = pathname.startsWith(tab.path);
         return (
           <button
-            key={tab.path}
+            key={tab.path} // stable unique key
             onClick={() => router.push(tab.path)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition
-              ${
-                isActive
-                  ? "bg-blue-800 text-white"
-                  : "bg-gray-100 hover:bg-blue-100 text-gray-800"
-              }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-blue-800 text-white"
+                : "bg-gray-100 hover:bg-blue-100 text-gray-800"
+            }`}
+            aria-current={isActive ? "page" : undefined}
+            type="button"
           >
             {tab.label}
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }

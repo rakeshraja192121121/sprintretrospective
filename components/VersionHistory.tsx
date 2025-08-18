@@ -20,17 +20,33 @@ import {
   setEditingId,
 } from "@/store/versionSlice";
 
+// Local TypeScript type definitions
+type VersionEntry = {
+  _id: string;
+  date: string;
+  name: string;
+  update: string;
+};
+type VersionState = {
+  version: {
+    versionHistory: VersionEntry[];
+    editingId: string | null;
+  };
+};
+type RootState = VersionState;
+
 export default function VersionHistory() {
   const dispatch = useDispatch();
   const { id } = useParams();
   const workspaceId = id;
 
+  // Use explicit types for selectors
   const versionHistory = useSelector(
-    (state) => state.version.versionHistory || []
+    (state: RootState) => state.version.versionHistory || []
   );
-  const editingId = useSelector((state) => state.version.editingId);
+  const editingId = useSelector((state: RootState) => state.version.editingId);
 
-  const [editFormData, setEditFormData] = useState({
+  const [editFormData, setEditFormData] = useState<VersionEntry>({
     _id: "",
     date: "",
     name: "",
@@ -42,10 +58,15 @@ export default function VersionHistory() {
     { date: "", name: "", update: "" },
   ]);
 
-  const [activeEditCell, setActiveEditCell] = useState(null);
+  const [activeEditCell, setActiveEditCell] = useState<null | {
+    id: string;
+    field: string;
+  }>(null);
   const [shouldFocusNewRow, setShouldFocusNewRow] = useState(false);
-  const firstNewInputRef = useRef(null);
-  const [typingTimeouts, setTypingTimeouts] = useState({});
+  const firstNewInputRef = useRef<HTMLInputElement>(null);
+  const [typingTimeouts, setTypingTimeouts] = useState<
+    Record<number, NodeJS.Timeout>
+  >({});
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -69,7 +90,7 @@ export default function VersionHistory() {
     }
   }, [shouldFocusNewRow]);
 
-  const handleCellClick = (rowId, field) => {
+  const handleCellClick = (rowId: string, field: string) => {
     const rowToEdit = versionHistory.find((row) => row?._id === rowId);
     if (rowToEdit) {
       setEditFormData({ ...rowToEdit });
@@ -78,11 +99,11 @@ export default function VersionHistory() {
     }
   };
 
-  const handleEditChange = (field, value) => {
+  const handleEditChange = (field: string, value: string) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleInputBlur = (indexOrId, field) => {
+  const handleInputBlur = (indexOrId: number | string, field?: string) => {
     if (typeof indexOrId === "number") {
       if (typingTimeouts[indexOrId]) clearTimeout(typingTimeouts[indexOrId]);
       handleAddNewEntry(indexOrId);
@@ -93,7 +114,9 @@ export default function VersionHistory() {
       const originalEntry = versionHistory.find(
         (entry) => entry?._id === rowId
       );
-      const currentValue = editFormData[field];
+      const currentValue = field
+        ? editFormData[field as keyof VersionEntry]
+        : "";
       const isAllEmpty =
         !editFormData.date.trim() &&
         !editFormData.name.trim() &&
@@ -107,7 +130,9 @@ export default function VersionHistory() {
       }
       if (
         originalEntry &&
-        originalEntry[field]?.trim() !== currentValue.trim()
+        field &&
+        originalEntry[field as keyof VersionEntry]?.trim() !==
+          currentValue.trim()
       ) {
         const updatedEntry = {
           workspaceId,
@@ -126,7 +151,7 @@ export default function VersionHistory() {
     }
   };
 
-  const handleInputChange = (index, field, value) => {
+  const handleInputChange = (index: number, field: string, value: string) => {
     const updated = [...inputRow];
     updated[index][field] = value;
     setInputRow(updated);
@@ -141,7 +166,7 @@ export default function VersionHistory() {
       setInputRow([...updated, { date: "", name: "", update: "" }]);
   };
 
-  const handleAddNewEntry = async (index) => {
+  const handleAddNewEntry = async (index: number) => {
     const currentRow = inputRow[index];
     if (!currentRow.date || !currentRow.name || !currentRow.update) return;
     const newEntry = {
@@ -179,6 +204,7 @@ export default function VersionHistory() {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {/* versionHistory rows, each row MUST have key=row._id */}
           {versionHistory
             .filter((row) => row != null)
             .map((row) => (
@@ -192,7 +218,7 @@ export default function VersionHistory() {
                     activeEditCell?.field === field ? (
                       <Input
                         type={field === "date" ? "date" : "text"}
-                        value={editFormData[field] || ""}
+                        value={editFormData[field as keyof VersionEntry] || ""}
                         onChange={(e) =>
                           handleEditChange(field, e.target.value)
                         }
@@ -200,12 +226,13 @@ export default function VersionHistory() {
                         autoFocus
                       />
                     ) : (
-                      row?.[field] || ""
+                      row?.[field as keyof VersionEntry] || ""
                     )}
                   </TableCell>
                 ))}
               </TableRow>
             ))}
+          {/* inputRow rows, key must be stable; use "input-N" */}
           {inputRow.map((row, index) => (
             <TableRow key={`input-${index}`}>
               <TableCell>
