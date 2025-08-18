@@ -1,20 +1,27 @@
 "use client";
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import {
-  setStakeholders,
-  addStakeholder,
-  updateStakeholder,
-  deleteStakeholder,
-} from "../store/stakeholdersSlice";
+import { setStakeholders } from "../store/stakeholdersSlice";
+
+// Define the stakeholder type locally
+type Stakeholder = {
+  role: string;
+  name: string;
+};
+
+// Define the part of the Redux state you want to select
+type RootState = {
+  stakeholders: Stakeholder[];
+};
 
 export default function Stakeholders() {
-  const stakeholders = useSelector((state) => state.stakeholders);
+  // Tell useSelector the type of the state variable so TS can infer types correctly
+  const stakeholders = useSelector((state: RootState) => state.stakeholders);
   const dispatch = useDispatch();
 
   // Load from localStorage once on mount and init Redux
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("stakeholders"));
+    const saved = JSON.parse(localStorage.getItem("stakeholders") || "[]");
     if (saved && Array.isArray(saved)) {
       dispatch(
         setStakeholders([
@@ -39,7 +46,11 @@ export default function Stakeholders() {
     localStorage.setItem("stakeholders", JSON.stringify(filled));
   }, [stakeholders]);
 
-  const handleChange = (index, field, value) => {
+  const handleChange = (
+    index: number,
+    field: keyof Stakeholder,
+    value: string
+  ) => {
     const updated = [...stakeholders];
     updated[index] = { ...updated[index], [field]: value };
 
