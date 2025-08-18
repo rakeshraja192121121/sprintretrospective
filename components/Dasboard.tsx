@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Edit } from "lucide-react";
+import { createPortal } from "react-dom";
 
 export default function PRDDashboard() {
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function PRDDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/prd");
+        const username = localStorage.getItem("loggedInUser");
+        const res = await fetch(`/api/prd?username=${username}`);
         if (!res.ok) throw new Error("Failed to fetch cards");
         const data = await res.json();
         setCards(data);
@@ -65,10 +67,11 @@ export default function PRDDashboard() {
 
   /** API helpers **/
   async function createCard(title) {
+    const username = localStorage.getItem("loggedInUser");
     const res = await fetch("/api/prd", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, status: "new" }), // default
+      body: JSON.stringify({ title, status: "new", username }), // default
     });
     if (!res.ok) {
       const { message } = await res.json();
@@ -262,7 +265,7 @@ export default function PRDDashboard() {
 
         {/* Create Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50">
             <div
               ref={createRef}
               className="bg-white rounded-lg shadow-lg w-80 p-6"

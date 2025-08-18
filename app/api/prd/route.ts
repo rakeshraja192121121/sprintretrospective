@@ -2,15 +2,18 @@ import connectMongoDB from "../../../lib/mongodb";
 import workspaceModel from "../../../models/workspace";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req) {
   try {
+    const url = new URL(req.url);
+    const username = url.searchParams.get("username"); // get username query param
+
     await connectMongoDB();
 
+    const query = username ? { username } : {};
     const cards = await workspaceModel
-      .find()
+      .find(query)
       .sort({ createdAt: -1 })
       .select("title status createdAt");
-    // .lean();
 
     const mappedCards = cards.map(({ _id, title, status, createdAt }) => ({
       id: _id.toString(),
@@ -33,7 +36,7 @@ export async function POST(req) {
   try {
     await connectMongoDB();
 
-    const { title } = await req.json();
+    const { title, username } = await req.json();
 
     if (!title || typeof title !== "string") {
       return NextResponse.json(
@@ -45,6 +48,7 @@ export async function POST(req) {
     const newCard = await workspaceModel.create({
       title: title.trim(),
       status: "new",
+      username,
     });
 
     return NextResponse.json(

@@ -12,6 +12,10 @@ const workspaceSchema = mongoose.Schema(
       default: "new",
       required: true,
     },
+    username: {
+      type: String,
+      required: true,
+    },
   },
   {
     timestamps: true,

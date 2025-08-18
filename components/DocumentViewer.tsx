@@ -7,9 +7,9 @@ export default function DocumentViewer() {
   const descriptions = useSelector((state: any) => state.editor.descriptions);
   const draftContent = useSelector((state: any) => state.editor.draftContent);
   const versionHistory = useSelector(
-    (state: any) => state.version.versionHistory
+    (state: unknown) => state.version.versionHistory
   );
-  const quickLinks = useSelector((state: any) => state.quickLinks);
+  const quickLinks = useSelector((state: unknown) => state.quickLinks);
   const stakeholders = useSelector((state: any) => state.stakeholders);
 
   return (

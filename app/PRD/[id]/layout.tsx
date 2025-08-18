@@ -6,7 +6,6 @@ import { Provider } from "react-redux";
 import { store } from "@/store";
 import { Eye } from "lucide-react";
 import { useRouter, usePathname, useParams } from "next/navigation";
-import { inter } from "../../../components/ui/fonts";
 
 export default function PRDLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

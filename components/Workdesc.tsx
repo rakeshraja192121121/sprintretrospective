@@ -1,14 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
-
-// import {
-//   Popover,
-//   PopoverContent,
-//   PopoverTrigger,
-// } from "@/components/ui/popover";
 
 import {
   setDescriptions,
@@ -25,9 +19,66 @@ import {
   Bold,
   Italic,
   Underline,
-  Link,
-  Table,
+  Link as LinkIcon,
+  Table as TableIcon,
 } from "lucide-react";
+
+function Popover({
+  visible,
+  children,
+  onClose,
+  anchorRef,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement>;
+}) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    }
+    if (visible) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [visible, onClose, anchorRef]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      ref={popoverRef}
+      style={{
+        position: "absolute",
+        zIndex: 1000,
+        bottom: "calc(100% + 8px)",
+        left: 0,
+        backgroundColor: "white",
+        padding: 12,
+        border: "1px solid #ccc",
+        borderRadius: 8,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+        minWidth: 220,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 type Entry = {
   _id: string;
@@ -39,8 +90,6 @@ export default function WorkDesc() {
   const descriptions = useSelector((state: any) => state.editor.descriptions);
   const editingId = useSelector((state: any) => state.editor.editingId);
   const draftContent = useSelector((state: any) => state.editor.draftContent);
-  // const [tableData, setTableData] = useState(["", "", "", ""]);
-  // const [savedTables, setSavedTables] = useState<string[][]>([]);
 
   const dispatch = useDispatch();
   const router = useRouter();
@@ -49,6 +98,17 @@ export default function WorkDesc() {
   const savedSelection = useRef<Range | null>(null);
 
   const userId = "fixed_user_id";
+
+  // Popover states & refs
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
+
+  const linkBtnRef = useRef<HTMLButtonElement>(null);
+  const tableBtnRef = useRef<HTMLButtonElement>(null);
+
+  const [linkUrl, setLinkUrl] = useState("");
+  const [tableRows, setTableRows] = useState("3");
+  const [tableCols, setTableCols] = useState("3");
 
   useEffect(() => {
     const fetchDescriptions = async () => {
@@ -155,6 +215,8 @@ export default function WorkDesc() {
   };
 
   const insertHtmlAtCursor = (html: string, focusSelector?: string) => {
+    restoreSelection(); // Ensure selection restored before inserting
+
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) {
       if (editorRef.current) {
@@ -190,32 +252,40 @@ export default function WorkDesc() {
     saveSelection();
   };
 
-  const insertGridTable = () => {
-    const colsStr = prompt("Enter number of columns (max 10):", "3");
-    if (!colsStr) return;
-    const cols = Math.min(Math.max(Number(colsStr), 1), 10);
-    if (isNaN(cols)) {
-      alert("Please enter a valid number for columns.");
+  const insertLink = () => {
+    if (!linkUrl) {
+      alert("Please enter a URL.");
       return;
     }
-    const rowsStr = prompt(
-      "Enter number of rows (including header, max 10):",
-      "3"
-    );
-    if (!rowsStr) return;
-    const rows = Math.min(Math.max(Number(rowsStr), 1), 10);
-    if (isNaN(rows)) {
-      alert("Please enter a valid number for rows.");
+    restoreSelection();
+    document.execCommand("createLink", false, linkUrl);
+    const sel = window.getSelection();
+    if (sel?.anchorNode?.parentElement?.tagName === "A") {
+      const link = sel.anchorNode.parentElement;
+      link.style.color = "#2563eb";
+      link.style.textDecoration = "underline";
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+    }
+    dispatch(setDraftContent(editorRef.current?.innerHTML || ""));
+    setLinkPopoverOpen(false);
+    setLinkUrl("");
+  };
+
+  const insertGridTable = () => {
+    const cols = Math.min(Math.max(Number(tableCols), 1), 10);
+    const rows = Math.min(Math.max(Number(tableRows), 1), 10);
+
+    if (isNaN(cols) || isNaN(rows)) {
+      alert("Please enter valid numbers for rows and columns.");
       return;
     }
 
     let html = `<div class="table-grid" data-cols="${cols}" data-rows="${rows}" style="display:grid; grid-template-columns: repeat(${cols}, 1fr);">`;
 
-    // Header cells
     for (let c = 0; c < cols; c++) {
       html += `<div contenteditable="true" class="cell cell-header" style="border: 1px solid #ccc;" tabindex="0">&nbsp;</div>`;
     }
-    // Body cells
     for (let r = 1; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         html += `<div contenteditable="true" style="border: 1px solid #ccc;" class="cell" tabindex="0">&nbsp;</div>`;
@@ -223,51 +293,36 @@ export default function WorkDesc() {
     }
     html += `</div><br/>`;
 
+    // Restore selection before inserting the table to fix focus issue
+    restoreSelection();
+
     insertHtmlAtCursor(html, ".table-grid .cell:not(.cell-header)");
 
-    //   const html = `<div class="grid grid-cols-${colsStr} gap-2 mt-4 mb-4">
-    //   <div class="bg-gray-50 border border-gray-300">
-    //     <input class="text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-    //   </div>
-    //   <div class="bg-gray-50 border border-gray-300">
-    //     <input class="text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-    //   </div>
-    //   <div class="bg-gray-50 border border-gray-300">
-    //     <input class="text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-    //   </div>
-    //   <div class="bg-gray-50 border border-gray-300">
-    //     <input class="text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-    //   </div>
-    // </div>
-    // <br/>`;
-    //   insertHtmlAtCursor(html);
+    setTablePopoverOpen(false);
+    setTableCols("3");
+    setTableRows("3");
   };
 
   const executeCommand = (command: string) => {
     if (!editorRef.current) return;
     editorRef.current.focus();
-    restoreSelection();
 
     if (command === "createLink") {
-      const url = prompt("Enter URL:");
-      if (url) {
-        document.execCommand(command, false, url);
-        const sel = window.getSelection();
-        if (sel?.anchorNode?.parentElement?.tagName === "A") {
-          const link = sel.anchorNode?.parentElement as HTMLElement;
-          link.style.color = "#2563eb";
-          link.style.textDecoration = "underline";
-          link.setAttribute("target", "_blank");
-          link.setAttribute("rel", "noopener noreferrer");
-        }
-      }
-    } else {
-      document.execCommand(command, false, null);
+      saveSelection();
+      setLinkPopoverOpen(true);
+      setTablePopoverOpen(false);
+      return;
     }
 
-    if (editorRef.current) {
-      dispatch(setDraftContent(editorRef.current.innerHTML));
+    if (command === "insertTable") {
+      saveSelection();
+      setTablePopoverOpen(true);
+      setLinkPopoverOpen(false);
+      return;
     }
+
+    document.execCommand(command, false, null);
+    dispatch(setDraftContent(editorRef.current.innerHTML));
     saveSelection();
   };
 
@@ -371,11 +426,7 @@ export default function WorkDesc() {
           while (currentNode && !currentNode.classList?.contains?.("cell")) {
             currentNode = currentNode.parentElement as HTMLElement;
           }
-          if (
-            currentNode &&
-            currentNode.classList &&
-            currentNode.classList.contains("cell")
-          ) {
+          if (currentNode && currentNode.classList?.contains("cell")) {
             event.preventDefault();
             const nextCell =
               currentNode.nextElementSibling as HTMLElement | null;
@@ -392,7 +443,7 @@ export default function WorkDesc() {
 
   return (
     <>
-      <div className="container mx-auto py-12 px-4 max-w-5xl">
+      <div className="container mx-auto py-12 px-4 max-w-5xl relative">
         <header className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-semibold">Scope of Work</h1>
           <button className="btn-primary" onClick={handleSave}>
@@ -401,7 +452,7 @@ export default function WorkDesc() {
           </button>
         </header>
 
-        <nav className="flex gap-2 mb-3">
+        <nav className="flex gap-2 mb-3 relative">
           <button
             onClick={() => executeCommand("bold")}
             className="btn-outline"
@@ -426,22 +477,101 @@ export default function WorkDesc() {
           >
             <Underline className="w-5 h-5" />
           </button>
+
           <button
+            ref={linkBtnRef}
             onClick={() => executeCommand("createLink")}
             className="btn-outline"
             aria-label="Insert Link"
             type="button"
           >
-            <Link className="w-5 h-5" />
+            <LinkIcon className="w-5 h-5" />
           </button>
+          <Popover
+            visible={linkPopoverOpen}
+            onClose={() => setLinkPopoverOpen(false)}
+            anchorRef={linkBtnRef}
+          >
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                placeholder="Enter URL"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="border p-1 rounded"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    insertLink();
+                  }
+                }}
+                autoFocus
+              />
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={insertLink}
+              >
+                Insert Link
+              </button>
+            </div>
+          </Popover>
+
           <button
-            onClick={insertGridTable}
+            ref={tableBtnRef}
+            onClick={() => executeCommand("insertTable")}
             className="btn-outline"
             aria-label="Insert Table"
             type="button"
           >
-            <Table className="w-5 h-5" />
+            <TableIcon className="w-5 h-5" />
           </button>
+          <Popover
+            visible={tablePopoverOpen}
+            onClose={() => setTablePopoverOpen(false)}
+            anchorRef={tableBtnRef}
+          >
+            <div className="flex flex-col gap-2">
+              <input
+                type="number"
+                min={1}
+                max={10}
+                placeholder="Rows (1-10)"
+                value={tableRows}
+                onChange={(e) => setTableRows(e.target.value)}
+                className="border p-1 rounded"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    insertGridTable();
+                  }
+                }}
+                autoFocus
+              />
+              <input
+                type="number"
+                min={1}
+                max={10}
+                placeholder="Columns (1-10)"
+                value={tableCols}
+                onChange={(e) => setTableCols(e.target.value)}
+                className="border p-1 rounded"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    insertGridTable();
+                  }
+                }}
+              />
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={insertGridTable}
+              >
+                Insert Table
+              </button>
+            </div>
+          </Popover>
         </nav>
 
         <div
@@ -497,7 +627,6 @@ export default function WorkDesc() {
                 </article>
               );
             })}
-
             {draftContent.trim() && !editingId && (
               <article className="border p-4 rounded bg-yellow-50 text-yellow-800 italic">
                 <h3>Unsaved Document (Draft)</h3>
@@ -545,8 +674,6 @@ export default function WorkDesc() {
         .space-y-4.overflow-y-auto.overflow-x-auto {
           padding-bottom: 10px;
         }
-
-        /* Ensure table grid and cells inside both editor and saved content have correct style */
         [contenteditable] .table-grid,
         .saved-content-display .table-grid {
           display: grid;
