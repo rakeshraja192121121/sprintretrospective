@@ -4,13 +4,51 @@ import React from "react";
 import { useSelector } from "react-redux";
 
 export default function DocumentViewer() {
-  const descriptions = useSelector((state: any) => state.editor.descriptions);
-  const draftContent = useSelector((state: any) => state.editor.draftContent);
-  const versionHistory = useSelector(
-    (state: unknown) => state.version.versionHistory
+  type Description = {
+    _id: string;
+    content: string; // explicitly string
+    [key: string]: unknown;
+  };
+
+  type EditorState = {
+    descriptions: Description[];
+    editingId: string | null;
+    draftContent: string;
+  };
+
+  interface VersionEntry {
+    _id: string;
+    date: string;
+    name: string;
+    update: string;
+  }
+
+  type QuickLink = {
+    name: string;
+    link: string;
+  };
+
+  type StakeHolder = {
+    role?: string;
+    name?: string;
+  };
+
+  const descriptions = useSelector(
+    (state: { editor: EditorState }) => state.editor.descriptions
   );
-  const quickLinks = useSelector((state: unknown) => state.quickLinks);
-  const stakeholders = useSelector((state: any) => state.stakeholders);
+  const draftContent = useSelector(
+    (state: { editor: EditorState }) => state.editor.draftContent
+  );
+  const versionHistory = useSelector(
+    (state: { version: { versionHistory: VersionEntry[] } }) =>
+      state.version.versionHistory
+  );
+  const quickLinks = useSelector(
+    (state: { quickLinks: QuickLink[] }) => state.quickLinks
+  );
+  const stakeholders = useSelector(
+    (state: { stakeholders: StakeHolder[] }) => state.stakeholders
+  );
 
   return (
     <div className="flex flex-col items-center py-8 bg-gray-100 min-h-screen">
@@ -44,7 +82,7 @@ export default function DocumentViewer() {
                   </td>
                 </tr>
               ) : (
-                versionHistory.map((entry: any) => (
+                versionHistory.map((entry: VersionEntry) => (
                   <tr key={entry._id} className="even:bg-gray-50">
                     <td className="border p-2">{entry.date || "N/A"}</td>
                     <td className="border p-2">{entry.name || "N/A"}</td>
@@ -65,8 +103,8 @@ export default function DocumentViewer() {
           ) : (
             <ul className="list-disc list-inside space-y-1">
               {quickLinks
-                .filter((link: any) => link.name || link.link)
-                .map((link: any, idx: number) => (
+                .filter((link: QuickLink) => link.name || link.link)
+                .map((link: QuickLink, idx: number) => (
                   <li key={idx}>
                     {link.link ? (
                       <a
@@ -90,8 +128,10 @@ export default function DocumentViewer() {
         <section className="mb-12">
           <h2 className="text-xl font-semibold mb-4">Description</h2>
           {descriptions.length > 0 ? (
-            descriptions.map((desc: any) => {
-              const containsTable = desc.content.includes('class="table-grid"');
+            descriptions.map((desc: Description) => {
+              const containsTable =
+                desc.content?.includes('class="table-grid"') ?? false;
+
               return (
                 <div
                   key={desc._id}
@@ -129,8 +169,8 @@ export default function DocumentViewer() {
               </thead>
               <tbody>
                 {stakeholders
-                  .filter((s: any) => s.role || s.name)
-                  .map((s: any, idx: number) => (
+                  .filter((s: StakeHolder) => s.role || s.name)
+                  .map((s: StakeHolder, idx: number) => (
                     <tr key={idx} className="even:bg-gray-50">
                       <td className="border p-2">{s.role || "N/A"}</td>
                       <td className="border p-2">{s.name || "N/A"}</td>

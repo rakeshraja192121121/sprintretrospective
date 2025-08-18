@@ -4,11 +4,17 @@ import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Edit } from "lucide-react";
-import { createPortal } from "react-dom";
 
 export default function PRDDashboard() {
+  type Card = {
+    id: string;
+    title: string;
+    status: string;
+    createdAt: string;
+  };
+
   const router = useRouter();
-  const [cards, setCards] = useState([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,8 +26,8 @@ export default function PRDDashboard() {
   const [editIndex, setEditIndex] = useState(null);
 
   // Modal refs
-  const createRef = useRef(null);
-  const editRef = useRef(null);
+  const createRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLDivElement>(null);
 
   // Fetch cards on mount
   useEffect(() => {
