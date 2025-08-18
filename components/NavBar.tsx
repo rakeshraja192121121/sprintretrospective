@@ -5,27 +5,42 @@ import { useSelector } from "react-redux";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 
+type CustomPage = {
+  label: string;
+  path: string;
+};
+
 function NavBar() {
   const pathname = usePathname();
   const params = useParams();
   const id = params?.id;
 
-  const version = useSelector((state: any) => state.version.versionHistory);
-  const quickLinks = useSelector((state: any) => state.quickLinks);
-  const editor = useSelector((state: any) => state.editor.descriptions);
-  const stakeholders = useSelector((state: any) => state.stakeholders);
+  const version = useSelector(
+    (state: any) => state.version?.versionHistory ?? []
+  );
+  const quickLinks = useSelector((state: any) => state.quickLinks ?? []);
+  const editor = useSelector((state: any) => state.editor?.descriptions ?? []);
+  const stakeholders = useSelector((state: any) => state.stakeholders ?? []);
 
-  // Local state for fetched custom pages
-  const [customPages, setCustomPages] = useState([]);
+  // Local state for fetched custom pages with type
+  const [customPages, setCustomPages] = useState<CustomPage[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
 
-  // Fetch dynamic pages from MongoDB on mount
+  // Fetch dynamic pages from MongoDB on mount, only if id exists
   useEffect(() => {
     if (!id) return;
     fetch(`/api/tabs?projectId=${id}`)
       .then((res) => res.json())
-      .then((data) => setCustomPages(data))
+      .then((data) => {
+        // Assuming data is { success: true, data: [...] }
+        if (data.success && Array.isArray(data.data)) {
+          setCustomPages(data.data);
+        } else {
+          setCustomPages([]);
+          console.error("No custom pages data found in API response.");
+        }
+      })
       .catch((err) => console.error("Error fetching tabs:", err));
   }, [id]);
 
@@ -38,9 +53,11 @@ function NavBar() {
     {
       label: "Quick Links",
       path: "QuickLinks",
-      isEmpty: quickLinks.every(
-        (item) => !item.link?.trim() || !item.name?.trim()
-      ),
+      isEmpty:
+        quickLinks.length === 0 ||
+        quickLinks.every(
+          (item: any) => !item.link?.trim() || !item.name?.trim()
+        ),
     },
     {
       label: "Introduction",
@@ -55,7 +72,9 @@ function NavBar() {
     {
       label: "Stakeholder",
       path: "StakeHolder",
-      isEmpty: stakeholders.every((item) => !item.role || !item.name),
+      isEmpty:
+        stakeholders.length === 0 ||
+        stakeholders.every((item: any) => !item.role || !item.name),
     },
     {
       label: "Analytics",
@@ -67,7 +86,7 @@ function NavBar() {
       path: "UIUXMocks",
       isEmpty: true,
     },
-
+    // Spread dynamic custom pages from API
     ...customPages.map((page) => ({
       label: page.label,
       path: page.path,
@@ -93,21 +112,26 @@ function NavBar() {
       });
 
       if (res.ok) {
-        const savedPage = await res.json();
-        setCustomPages((prev) => [...prev, savedPage]);
-        setShowModal(false);
-        setNewPageTitle("");
+        const responseData = await res.json();
+        // Assuming responseData contains { success: true, data: savedPage }
+        if (responseData.success && responseData.data) {
+          setCustomPages((prev) => [...prev, responseData.data]);
+          setShowModal(false);
+          setNewPageTitle("");
+        } else {
+          console.error("Failed to add page: invalid response");
+        }
       } else {
-        console.error("Failed to add page");
+        console.error("Failed to add page: HTTP error", res.status);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error adding page:", err);
     }
   };
 
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[9999]">
-      <div className="bg-white text-black  p-6 rounded shadow-md w-96">
+      <div className="bg-white text-black p-6 rounded shadow-md w-96">
         <h2 className="text-lg font-bold mb-4">Create New Page</h2>
         <input
           type="text"
@@ -115,6 +139,7 @@ function NavBar() {
           onChange={(e) => setNewPageTitle(e.target.value)}
           placeholder="Enter page title"
           className="border p-2 w-full mb-4"
+          autoFocus
         />
         <div className="flex justify-end space-x-2">
           <button
@@ -166,7 +191,9 @@ function NavBar() {
               <li>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="px-2  bg-white text-black rounded-md hover:bg-amber-50"
+                  className="px-2 bg-white text-black rounded-md hover:bg-amber-50"
+                  aria-label="Add new page"
+                  type="button"
                 >
                   +
                 </button>
