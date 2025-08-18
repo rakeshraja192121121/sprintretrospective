@@ -1,17 +1,20 @@
-import React from 'react';
+import React from "react";
+import NextImage from "next/image"; // ✅ import Next.js Image
 
-export default function Image({ onClick }: { onClick: () => void }) {
+type Props = {
+  onClick: () => void;
+};
+
+export default function Image({ onClick }: Props) {
   return (
     <div>
-        <Image
-        src= "/delete-icon.png"
-      alt="delete"
-      width={50}
-      height={50}
-      onClick={onClick}/>
-
-       
-      
+      <NextImage
+        src="/delete-icon.png"
+        alt="delete"
+        width={50}
+        height={50}
+        onClick={onClick}
+      />
     </div>
-  )
+  );
 }
