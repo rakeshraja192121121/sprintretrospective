@@ -9,14 +9,11 @@ type Stakeholder = {
   name: string;
 };
 
-// Define the part of the Redux state you want to select
-type RootState = {
-  stakeholders: Stakeholder[];
-};
-
 export default function Stakeholders() {
   // Tell useSelector the type of the state variable so TS can infer types correctly
-  const stakeholders = useSelector((state: RootState) => state.stakeholders);
+  const stakeholders = useSelector(
+    (state: { stakeholders: Stakeholder[] }) => state.stakeholders
+  );
   const dispatch = useDispatch();
 
   // Load from localStorage once on mount and init Redux

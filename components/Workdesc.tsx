@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 import {
   setDescriptions,
@@ -32,7 +33,7 @@ function Popover({
   visible: boolean;
   children: React.ReactNode;
   onClose: () => void;
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -88,9 +89,9 @@ type Entry = {
 
 export default function WorkDesc() {
   interface DescriptionEntry {
-    _id: string; // Assuming each description has an _id
-    // Add other properties that a description might have
-    // e.g. content: string;
+    _id: string;
+    content: string; // content of the description
+    // Add other fields as needed
   }
 
   interface EditorState {
@@ -114,14 +115,16 @@ export default function WorkDesc() {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedSelection = useRef<Range | null>(null);
 
-  const userId = "fixed_user_id";
+  const params = useParams();
+
+  const userID = params.id;
 
   // Popover states & refs
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
 
   const linkBtnRef = useRef<HTMLButtonElement>(null);
-  const tableBtnRef = useRef<HTMLButtonElement>(null);
+  const tableBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [linkUrl, setLinkUrl] = useState("");
   const [tableRows, setTableRows] = useState("3");
@@ -130,7 +133,7 @@ export default function WorkDesc() {
   useEffect(() => {
     const fetchDescriptions = async () => {
       try {
-        const res = await fetch("/api/description");
+        const res = await fetch(`/api/description?userId=${userID}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           dispatch(setDescriptions(data.data));
@@ -338,7 +341,7 @@ export default function WorkDesc() {
       return;
     }
 
-    document.execCommand(command, false, null);
+    document.execCommand(command, false);
     dispatch(setDraftContent(editorRef.current.innerHTML));
     saveSelection();
   };
@@ -354,7 +357,7 @@ export default function WorkDesc() {
         const res = await fetch(`/api/description/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, userId }),
+          body: JSON.stringify({ content, userID }),
         });
         const data = await res.json();
         if (data.success && data.data) {
@@ -367,7 +370,7 @@ export default function WorkDesc() {
         const res = await fetch(`/api/description`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, userId }),
+          body: JSON.stringify({ content, userID }),
         });
         const data = await res.json();
         if (data.success && data.data) {

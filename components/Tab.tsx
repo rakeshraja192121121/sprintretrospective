@@ -15,7 +15,7 @@ export default function TabNavigation() {
   ];
 
   return (
-    <nav className="flex gap-2 p-2 ml-3 border border-gray-200 rounded-md bg-white">
+    <nav className="flex gap-2 p-2 ml-3  rounded-md bg-white">
       {tabs.map((tab) => {
         const isActive = pathname.startsWith(tab.path);
         return (

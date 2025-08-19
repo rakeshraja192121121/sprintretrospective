@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
-import workspace from "./workspace";
 
 const DescriptionSchema = new mongoose.Schema({
-  workspaceId: {
+  userID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "workspace",
     required: true,

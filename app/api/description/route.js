@@ -1,39 +1,43 @@
 import connectMongoDB from "@/lib/mongodb";
 import Description from "@/models/Description";
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
-// POST handler - create a new description
 export async function POST(req) {
   try {
     await connectMongoDB();
-    const { content, userId } = await req.json();
 
-    if (!content || content.trim() === "" || !userId) {
+    // Parse JSON body containing content and userID
+    const { content, userID } = await req.json();
+
+    // Validate required fields
+    if (!content || !content.trim() || !userID) {
       return NextResponse.json(
-        { success: false, error: "Content and userId are required" },
+        { success: false, error: "Content and userID are required" },
         { status: 400 }
       );
     }
 
-    const createdAt = new Date().toISOString();
-    const saved = await Description.create({ content, userId, createdAt });
+    // Create and save new description document
+    const saved = await Description.create({ content, userID });
 
     return NextResponse.json({ success: true, data: saved }, { status: 201 });
-  } catch (err) {
-    console.error("POST error:", err);
+  } catch (error) {
+    console.error("POST error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to save" },
+      { success: false, error: "Failed to save description" },
       { status: 500 }
     );
   }
 }
-
 // GET handler - fetch all descriptions, no filtering
-export async function GET() {
+export async function GET(request) {
   try {
     await connectMongoDB();
-
-    const all = await Description.find().lean();
+    const { searchParams } = new URL(request.url);
+    const userID = searchParams.get("userID");
+    const validUserId = new mongoose.Types.ObjectId(userID);
+    const all = await Description.find({ userID: validUserId }).lean();
 
     return NextResponse.json({ success: true, data: all }, { status: 200 });
   } catch (err) {

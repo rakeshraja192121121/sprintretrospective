@@ -15,12 +15,51 @@ function NavBar() {
   const params = useParams();
   const id = params?.id;
 
+  interface VersionEntry {
+    _id: string;
+    date: string;
+    name: string;
+    update: string;
+  }
+
+  interface VersionState {
+    versionHistory: VersionEntry[];
+    editingId: string | null; // if you want to track which entry is being edited
+    draftEntry: Partial<VersionEntry>; // for live input of new or edited entry
+  }
+
+  type QuickLinkItem = {
+    name: string;
+    link: string;
+  };
+  interface DescriptionEntry {
+    _id: string; // Assuming each description has an _id
+    // Add other properties that a description might have
+    // if the code cose any post error it may coz of this conetnt is mising
+  }
+
+  interface EditorState {
+    descriptions: DescriptionEntry[];
+    editingId: string | null;
+    draftContent: string;
+  }
+  type Stakeholder = {
+    role: string;
+    name: string;
+  };
+
   const version = useSelector(
-    (state: any) => state.version?.versionHistory ?? []
+    (state: { version: VersionState }) => state.version?.versionHistory ?? []
   );
-  const quickLinks = useSelector((state: any) => state.quickLinks ?? []);
-  const editor = useSelector((state: any) => state.editor?.descriptions ?? []);
-  const stakeholders = useSelector((state: any) => state.stakeholders ?? []);
+  const quickLinks = useSelector(
+    (state: { quickLinks: QuickLinkItem[] }) => state.quickLinks ?? []
+  );
+  const editor = useSelector(
+    (state: { editor: EditorState }) => state.editor?.descriptions ?? []
+  );
+  const stakeholders = useSelector(
+    (state: { stakeholders: Stakeholder[] }) => state.stakeholders ?? []
+  );
 
   // Local state for fetched custom pages with type
   const [customPages, setCustomPages] = useState<CustomPage[]>([]);
@@ -38,7 +77,6 @@ function NavBar() {
           setCustomPages(data.data);
         } else {
           setCustomPages([]);
-          console.error("No custom pages data found in API response.");
         }
       })
       .catch((err) => console.error("Error fetching tabs:", err));
@@ -55,9 +93,7 @@ function NavBar() {
       path: "QuickLinks",
       isEmpty:
         quickLinks.length === 0 ||
-        quickLinks.every(
-          (item: any) => !item.link?.trim() || !item.name?.trim()
-        ),
+        quickLinks.every((item) => !item.link?.trim() || !item.name?.trim()),
     },
     {
       label: "Introduction",
@@ -74,7 +110,7 @@ function NavBar() {
       path: "StakeHolder",
       isEmpty:
         stakeholders.length === 0 ||
-        stakeholders.every((item: any) => !item.role || !item.name),
+        stakeholders.every((item) => !item.role || !item.name),
     },
     {
       label: "Analytics",

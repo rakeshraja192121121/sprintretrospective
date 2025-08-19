@@ -20,38 +20,40 @@ import {
   setEditingId,
 } from "@/store/versionSlice";
 
+type EditCell = { id: string; field: string } | null;
+
+interface VersionEntry {
+  _id: string;
+  date: string;
+  name: string;
+  update: string;
+}
+
+interface VersionState {
+  versionHistory: VersionEntry[];
+  editingId: string | null;
+  draftEntry: Partial<VersionEntry>;
+}
+
 export default function VersionHistory() {
   const dispatch = useDispatch();
   const { id } = useParams();
   const workspaceId = id;
 
-  type EditCell = { id: string; field: string } | null;
-
-  interface VersionEntry {
-    _id: string;
-    date: string;
-    name: string;
-    update: string;
-  }
-
-  interface VersionState {
-    versionHistory: VersionEntry[];
-    editingId: string | null; // if you want to track which entry is being edited
-    draftEntry: Partial<VersionEntry>; // for live input of new or edited entry
-  }
-
   const versionHistory = useSelector(
     (state: { version: VersionState }) => state.version.versionHistory || []
   );
 
-  const [editFormData, setEditFormData] = useState({
+  const [editFormData, setEditFormData] = useState<VersionEntry>({
     _id: "",
     date: "",
     name: "",
     update: "",
   });
 
-  const [inputRow, setInputRow] = useState([
+  const [inputRow, setInputRow] = useState<
+    { date: string; name: string; update: string }[]
+  >([
     { date: "", name: "", update: "" },
     { date: "", name: "", update: "" },
   ]);
@@ -59,7 +61,6 @@ export default function VersionHistory() {
   const [activeEditCell, setActiveEditCell] = useState<EditCell>(null);
   const [shouldFocusNewRow, setShouldFocusNewRow] = useState(false);
   const firstNewInputRef = useRef<HTMLInputElement | null>(null);
-  const [typingTimeouts, setTypingTimeouts] = useState({});
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -83,7 +84,7 @@ export default function VersionHistory() {
     }
   }, [shouldFocusNewRow]);
 
-  const handleCellClick = (rowId, field) => {
+  const handleCellClick = (rowId: string, field: string) => {
     const rowToEdit = versionHistory.find((row) => row?._id === rowId);
     if (rowToEdit) {
       setEditFormData({ ...rowToEdit });
@@ -92,13 +93,13 @@ export default function VersionHistory() {
     }
   };
 
-  const handleEditChange = (field, value) => {
+  const handleEditChange = (field: keyof VersionEntry, value: string) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleInputBlur = (indexOrId, field) => {
+  const handleInputBlur = (indexOrId: number | string, field: string) => {
     if (typeof indexOrId === "number") {
-      if (typingTimeouts[indexOrId]) clearTimeout(typingTimeouts[indexOrId]);
+      // For new rows, add entry immediately on blur
       handleAddNewEntry(indexOrId);
     } else {
       const rowId = indexOrId;
@@ -107,7 +108,7 @@ export default function VersionHistory() {
       const originalEntry = versionHistory.find(
         (entry) => entry?._id === rowId
       );
-      const currentValue = editFormData[field];
+      const currentValue = editFormData[field as keyof VersionEntry];
       const isAllEmpty =
         !editFormData.date.trim() &&
         !editFormData.name.trim() &&
@@ -121,10 +122,10 @@ export default function VersionHistory() {
       }
       if (
         originalEntry &&
-        originalEntry[field]?.trim() !== currentValue.trim()
+        originalEntry[field as keyof VersionEntry]?.trim() !==
+          currentValue.trim()
       ) {
-        const updatedEntry = {
-          workspaceId,
+        const updatedEntry: VersionEntry = {
           _id: rowId,
           date: editFormData.date || "",
           name: editFormData.name || "",
@@ -140,45 +141,67 @@ export default function VersionHistory() {
     }
   };
 
-  const handleInputChange = (index, field, value) => {
+  const handleInputChange = (
+    index: number,
+    field: keyof VersionEntry,
+    value: string
+  ) => {
     const updated = [...inputRow];
     updated[index][field] = value;
     setInputRow(updated);
-    if (typingTimeouts[index]) clearTimeout(typingTimeouts[index]);
-    const timeoutId = setTimeout(() => {
-      handleAddNewEntry(index);
-    }, 5000);
-    setTypingTimeouts((prev) => ({ ...prev, [index]: timeoutId }));
+
     const lastTwo = updated.slice(-2);
     const anyFilled = lastTwo.some((row) => row.date || row.name || row.update);
     if (anyFilled)
       setInputRow([...updated, { date: "", name: "", update: "" }]);
   };
 
-  const handleAddNewEntry = async (index) => {
+  const handleAddNewEntry = async (index: number) => {
     const currentRow = inputRow[index];
     if (!currentRow.date || !currentRow.name || !currentRow.update) return;
-    const newEntry = {
+
+    // Temporary entry with client-generated _id for UI only
+    const tempEntry: VersionEntry = {
       _id: crypto.randomUUID(),
       date: currentRow.date,
       name: currentRow.name,
       update: currentRow.update,
     };
+
+    // Dispatch immediately for UI responsiveness
+    dispatch(addVersionEntry(tempEntry));
+
+    // Prepare POST payload without _id but with workspaceId
+    const entryToPost = {
+      workspaceId,
+      date: currentRow.date,
+      name: currentRow.name,
+      update: currentRow.update,
+    };
+
     try {
-      dispatch(addVersionEntry(newEntry));
       const res = await fetch("/api/dataa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newEntry),
+        body: JSON.stringify(entryToPost),
       });
       if (!res.ok) throw new Error("Failed to add new entry");
+
+      // Replace temporary entry with backend saved entry (including real _id)
+      const savedEntry: VersionEntry = await res.json();
+      dispatch(updateVersionEntry(savedEntry));
+
+      // Reset input rows to two empty rows
       setInputRow([
         { date: "", name: "", update: "" },
         { date: "", name: "", update: "" },
       ]);
+
       setShouldFocusNewRow(true);
     } catch (error) {
       console.error("Failed to add new entry:", error);
+      // Remove temporary entry on failure
+      dispatch(removeVersionEntry(tempEntry._id));
     }
   };
 
@@ -197,27 +220,29 @@ export default function VersionHistory() {
             .filter((row) => row != null)
             .map((row) => (
               <TableRow key={row._id}>
-                {["date", "name", "update"].map((field) => (
-                  <TableCell
-                    key={`${row._id}-${field}`}
-                    onClick={() => handleCellClick(row._id, field)}
-                  >
-                    {activeEditCell?.id === row._id &&
-                    activeEditCell?.field === field ? (
-                      <Input
-                        type={field === "date" ? "date" : "text"}
-                        value={editFormData[field] || ""}
-                        onChange={(e) =>
-                          handleEditChange(field, e.target.value)
-                        }
-                        onBlur={() => handleInputBlur(row._id, field)}
-                        autoFocus
-                      />
-                    ) : (
-                      row?.[field] || ""
-                    )}
-                  </TableCell>
-                ))}
+                {(["date", "name", "update"] as (keyof VersionEntry)[]).map(
+                  (field) => (
+                    <TableCell
+                      key={`${row._id}-${field}`}
+                      onClick={() => handleCellClick(row._id, field)}
+                    >
+                      {activeEditCell?.id === row._id &&
+                      activeEditCell?.field === field ? (
+                        <Input
+                          type={field === "date" ? "date" : "text"}
+                          value={editFormData[field] || ""}
+                          onChange={(e) =>
+                            handleEditChange(field, e.target.value)
+                          }
+                          onBlur={() => handleInputBlur(row._id, field)}
+                          autoFocus
+                        />
+                      ) : (
+                        row?.[field] || ""
+                      )}
+                    </TableCell>
+                  )
+                )}
               </TableRow>
             ))}
           {inputRow.map((row, index) => (
