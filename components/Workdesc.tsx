@@ -87,9 +87,26 @@ type Entry = {
 };
 
 export default function WorkDesc() {
-  const descriptions = useSelector((state: any) => state.editor.descriptions);
-  const editingId = useSelector((state: any) => state.editor.editingId);
-  const draftContent = useSelector((state: any) => state.editor.draftContent);
+  interface DescriptionEntry {
+    _id: string; // Assuming each description has an _id
+    // Add other properties that a description might have
+    // e.g. content: string;
+  }
+
+  interface EditorState {
+    descriptions: DescriptionEntry[];
+    editingId: string | null;
+    draftContent: string;
+  }
+  const descriptions = useSelector(
+    (state: { editor: EditorState }) => state.editor.descriptions
+  );
+  const editingId = useSelector(
+    (state: { editor: EditorState }) => state.editor.editingId
+  );
+  const draftContent = useSelector(
+    (state: { editor: EditorState }) => state.editor.draftContent
+  );
 
   const dispatch = useDispatch();
   const router = useRouter();
