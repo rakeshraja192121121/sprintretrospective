@@ -9,7 +9,10 @@ export default function LoginControl() {
 
   const router = useRouter();
 
-  const users = [{ username: "admin", password: "admin123" }];
+  const users = [
+    { username: "admin", password: "admin123" },
+    { username: "infinite", password: "infinite@123" },
+  ];
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

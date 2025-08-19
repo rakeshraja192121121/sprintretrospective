@@ -1,6 +1,7 @@
 import connectMongoDB from "../../../lib/mongodb";
 import workspaceModel from "../../../models/workspace";
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 export async function GET(req) {
   try {
@@ -46,6 +47,7 @@ export async function POST(req) {
     }
 
     const newCard = await workspaceModel.create({
+      userId: new mongoose.Types.ObjectId(),
       title: title.trim(),
       status: "new",
       username,
