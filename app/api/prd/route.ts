@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import connectMongoDB from "../../../lib/mongodb";
 import workspaceModel from "../../../models/workspace";
 import { NextResponse } from "next/server";

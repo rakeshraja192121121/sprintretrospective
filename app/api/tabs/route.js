@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import connectMongoDB from "../../../lib/mongodb";
 import Tab from "@/models/Tab";
 

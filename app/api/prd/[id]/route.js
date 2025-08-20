@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import connectMongoDB from "../../../../lib/mongodb";
 import Workspace from "../../../../models/workspace";
 import { ObjectId } from "mongodb";

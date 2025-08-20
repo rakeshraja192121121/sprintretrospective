@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import dbConnect from "@/lib/mongodb";
 import VersionHistory from "@/models/version";
 import CombinedAppData from "@/models/CombinedSave";

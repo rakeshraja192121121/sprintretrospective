@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 // app/api/dataa/route.js
 import { NextResponse } from "next/server";
 import connectMongoDB from "@/lib/mongodb";

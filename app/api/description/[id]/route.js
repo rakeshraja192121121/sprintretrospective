@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import connectMongoDB from "@/lib/mongodb";
 import Description from "@/models/Description";
 import { NextResponse } from "next/server";
