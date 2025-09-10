@@ -160,7 +160,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative h-screen overflow-x-auto overflow-y-auto">
+    <div className="relative overflow-hidden">
       {editPopup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white p-4 rounded-lg w-[90%] max-w-[400px]">
@@ -228,7 +228,7 @@ export default function Home() {
 
       <Header />
 
-      <div className="flex gap-4 p-4 min-w-[1200px]">
+      <div className="flex gap-4 p-4 min-w-[1200px] max-w-full overflow-x-auto">
         {/* What went well */}
         <div className="w-full">
           <div className="flex justify-center">

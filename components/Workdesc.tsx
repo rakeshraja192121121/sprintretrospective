@@ -23,6 +23,7 @@ import {
   Link as LinkIcon,
   Table as TableIcon,
 } from "lucide-react";
+import { trackEvent } from "@/lib/tracker";
 
 function Popover({
   visible,
@@ -135,6 +136,7 @@ export default function WorkDesc() {
       try {
         const res = await fetch(`/api/description?userId=${userID}`);
         const data = await res.json();
+        trackEvent('workdesc_load_response', { data });
         if (data.success && Array.isArray(data.data)) {
           dispatch(setDescriptions(data.data));
         }
@@ -277,6 +279,9 @@ export default function WorkDesc() {
       alert("Please enter a URL.");
       return;
     }
+    
+    trackEvent('CLICK', { action: 'workdesc_link_inserted' });
+    
     restoreSelection();
     document.execCommand("createLink", false, linkUrl);
     const sel = window.getSelection();
@@ -300,6 +305,8 @@ export default function WorkDesc() {
       alert("Please enter valid numbers for rows and columns.");
       return;
     }
+    
+    trackEvent('CLICK', { action: 'workdesc_table_inserted' });
 
     let html = `<div class="table-grid" data-cols="${cols}" data-rows="${rows}" style="display:grid; grid-template-columns: repeat(${cols}, 1fr);">`;
 
@@ -324,6 +331,8 @@ export default function WorkDesc() {
   };
 
   const executeCommand = (command: string) => {
+    trackEvent('CLICK', { action: `workdesc_format_${command}` });
+    
     if (!editorRef.current) return;
     editorRef.current.focus();
 
@@ -354,12 +363,15 @@ export default function WorkDesc() {
     }
     try {
       if (editingId) {
+        // Will track response after API call
+        
         const res = await fetch(`/api/description/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content, userID }),
         });
         const data = await res.json();
+        trackEvent('workdesc_update_response', { data });
         if (data.success && data.data) {
           dispatch(updateDescription(data.data));
           alert("Updated successfully");
@@ -367,12 +379,15 @@ export default function WorkDesc() {
           alert("Failed to update");
         }
       } else {
+        // Will track response after API call
+        
         const res = await fetch(`/api/description`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content, userID }),
         });
         const data = await res.json();
+        trackEvent('workdesc_create_response', { data });
         if (data.success && data.data) {
           dispatch(addDescription(data.data));
           alert("Saved successfully");
@@ -397,8 +412,11 @@ export default function WorkDesc() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this document?")) return;
     try {
+      // Will track response after API call
+      
       const res = await fetch(`/api/description/${id}`, { method: "DELETE" });
       const data = await res.json();
+      trackEvent('workdesc_delete_response', { data });
       if (data.success) {
         dispatch(removeDescription(id));
         if (id === editingId) {
@@ -418,6 +436,8 @@ export default function WorkDesc() {
   };
 
   const handleEdit = (entry: Entry) => {
+    trackEvent('CLICK', { action: 'workdesc_edit_clicked' });
+    
     dispatch(setEditingId(entry._id));
     dispatch(setDraftContent(entry.content));
     if (editorRef.current) {
@@ -466,7 +486,10 @@ export default function WorkDesc() {
       <div className="container mx-auto py-12 px-4 max-w-5xl relative">
         <header className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-semibold">Scope of Work</h1>
-          <button className="btn-primary" onClick={handleSave}>
+          <button className="btn-primary" onClick={() => {
+            trackEvent('CLICK', { action: 'workdesc_save_clicked' });
+            handleSave();
+          }}>
             <Save className="inline-block mr-2" />
             {editingId ? "Update Document" : "Save Document"}
           </button>
@@ -638,7 +661,10 @@ export default function WorkDesc() {
                   />
                   <button
                     className="hidden group-hover:block absolute top-2 right-2 text-red-600 hover:text-red-900"
-                    onClick={() => handleDelete(desc._id)}
+                    onClick={() => {
+                      trackEvent('CLICK', { action: 'workdesc_delete_clicked' });
+                      handleDelete(desc._id);
+                    }}
                     aria-label="Delete Document"
                     type="button"
                   >

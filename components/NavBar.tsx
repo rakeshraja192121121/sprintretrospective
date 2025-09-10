@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
+import { trackEvent } from "@/lib/tracker";
 
 type CustomPage = {
   label: string;
@@ -33,9 +35,7 @@ function NavBar() {
     link: string;
   };
   interface DescriptionEntry {
-    _id: string; // Assuming each description has an _id
-    // Add other properties that a description might have
-    // if the code cose any post error it may coz of this conetnt is mising
+    _id: string; //  each description has an _id
   }
 
   interface EditorState {
@@ -61,18 +61,17 @@ function NavBar() {
     (state: { stakeholders: Stakeholder[] }) => state.stakeholders ?? []
   );
 
-  // Local state for fetched custom pages with type
   const [customPages, setCustomPages] = useState<CustomPage[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
 
-  // Fetch dynamic pages from MongoDB on mount, only if id exists
+  const [isExpanded, setIsExpanded] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     fetch(`/api/tabs?projectId=${id}`)
       .then((res) => res.json())
       .then((data) => {
-        // Assuming data is { success: true, data: [...] }
         if (data.success && Array.isArray(data.data)) {
           setCustomPages(data.data);
         } else {
@@ -149,7 +148,9 @@ function NavBar() {
 
       if (res.ok) {
         const responseData = await res.json();
-        // Assuming responseData contains { success: true, data: savedPage }
+
+        trackEvent("click", { action: "adding a new custom page" });
+
         if (responseData.success && responseData.data) {
           setCustomPages((prev) => [...prev, responseData.data]);
           setShowModal(false);
@@ -165,81 +166,120 @@ function NavBar() {
     }
   };
 
-  const modalContent = (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[9999]">
-      <div className="bg-white text-black p-6 rounded shadow-md w-96">
-        <h2 className="text-lg font-bold mb-4">Create New Page</h2>
-        <input
-          type="text"
-          value={newPageTitle}
-          onChange={(e) => setNewPageTitle(e.target.value)}
-          placeholder="Enter page title"
-          className="border p-2 w-full mb-4"
-          autoFocus
-        />
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={() => setShowModal(false)}
-            className="bg-gray-300 px-4 py-1 rounded"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAddPage}
-            className="bg-blue-500 text-white px-4 py-1 rounded"
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const modalContent = showModal
+    ? createPortal(
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[100000]">
+          <div className="bg-white text-black p-6 rounded shadow-md w-96">
+            <h2 className="text-lg font-bold mb-4">Create New Page</h2>
+            <input
+              type="text"
+              value={newPageTitle}
+              onChange={(e) => setNewPageTitle(e.target.value)}
+              placeholder="Enter page title"
+              className="border p-2 w-full mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  trackEvent("Click for cancel", {
+                    action: "canceling the creation of new page",
+                  });
+                  setShowModal(false);
+                }}
+                className="bg-gray-300 px-4 py-1 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddPage}
+                className="bg-blue-500 text-white px-4 py-1 rounded"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
 
   return (
     <>
-      <nav className="bg-gray-800 text-white dark:bg-gray-700">
-        <div className="max-w-screen-xl px-4 py-3 mx-auto">
-          <div className="flex items-center justify-between">
-            <ul className="flex flex-row font-medium mt-0 space-x-4 text-sm">
-              {navItems.map((item) => {
-                const href = `/PRD/${id}/${item.path}`;
-                const labelWithStar = item.isEmpty
-                  ? `${item.label} *`
-                  : item.label;
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className={
-                        "px-3 py-1 rounded-md " +
-                        (pathname === href
-                          ? "bg-amber-50 text-black"
-                          : "hover:bg-gray-600")
-                      }
-                    >
-                      {labelWithStar}
-                    </Link>
-                  </li>
-                );
-              })}
-
-              {/* Plus Button */}
-              <li>
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="px-2 bg-white text-black rounded-md hover:bg-amber-50"
-                  aria-label="Add new page"
-                  type="button"
-                >
-                  +
-                </button>
-              </li>
-            </ul>
+      <div className="flex items-center w-full">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="p-2 hover:bg-gray-600 rounded bg-gray-800 text-white mr-4"
+          aria-label="Toggle menu"
+          type="button"
+        >
+          <div className="w-4 h-3 flex flex-col justify-between">
+            <div className="w-full h-0.5 bg-white"></div>
+            <div className="w-full h-0.5 bg-white"></div>
+            <div className="w-full h-0.5 bg-white"></div>
           </div>
-        </div>
-      </nav>
+        </button>
 
-      <div>{showModal && modalContent}</div>
+        {/* Navigation Items - only show when expanded */}
+
+        <nav
+          className={`bg-gray-800 text-white dark:bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 transition-all duration-300 ease-in-out ${
+            isExpanded
+              ? "transform translate-x-0 opacity-100 scale-100"
+              : "transform -translate-x-full opacity-0 scale-95 pointer-events-none"
+          }`}
+        >
+          <ul className="flex flex-row flex-wrap gap-2 text-sm font-medium">
+            {navItems.map((item, index) => {
+              const href = `/PRD/${id}/${item.path}`;
+              const labelWithStar = item.isEmpty
+                ? `${item.label} *`
+                : item.label;
+              return (
+                <li key={`${item.path}-${index}`}>
+                  <Link
+                    href={href}
+                    onClick={() => {
+                      trackEvent("NAV_CLICK", {
+                        page: item.label,
+                        path: item.path,
+                        projectId: id,
+                      });
+                    }}
+                    className={
+                      "px-3 py-1 rounded-md " +
+                      (pathname === href
+                        ? "bg-amber-50 text-black"
+                        : "hover:bg-gray-600")
+                    }
+                  >
+                    {labelWithStar}
+                  </Link>
+                </li>
+              );
+            })}
+
+            {/* Plus Button */}
+            <li>
+              <button
+                onClick={() => {
+                  trackEvent("click", {
+                    action: "open a popup modal to Enter the custom page name ",
+                  });
+                  setShowModal(true);
+                }}
+                className="px-2 bg-white text-black rounded-md hover:bg-amber-50"
+                aria-label="Add new page"
+                type="button"
+              >
+                +
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      {modalContent}
     </>
   );
 }

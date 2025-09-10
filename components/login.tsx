@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackEvent } from "@/lib/tracker";
 
 export default function LoginControl() {
   const [username, setUsername] = useState("");
@@ -20,12 +21,20 @@ export default function LoginControl() {
       (u) => u.username === username && u.password === password
     );
     if (match) {
+      trackEvent("clicked login btn ", {
+        username: username,
+        password: password,
+      });
+
       setUsername("");
       setPassword("");
       setIsInvalid(false);
       localStorage.setItem("loggedInUser", match.username);
       router.push("/PRD");
     } else {
+      trackEvent("clicked login btn", {
+        error: "credentials was not matching",
+      });
       setIsInvalid(true);
     }
   };

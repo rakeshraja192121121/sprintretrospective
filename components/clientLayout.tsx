@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Tab from "@/components/Tab";
 import { ClientProviders } from "@/components/ClientProviders";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function ClientLayout({
   children,
@@ -15,6 +16,9 @@ export default function ClientLayout({
   // Pages where layout should be hidden
   const noLayoutRoutes = ["/login", "/register", "/forgot-password"];
   const hideLayout = noLayoutRoutes.includes(pathname);
+  
+  // PRD pages handle their own scrolling
+  const isPRDPage = pathname.startsWith('/PRD/');
 
   return (
     <>
@@ -33,7 +37,15 @@ export default function ClientLayout({
         </div>
       )}
 
-      <ClientProviders>{children}</ClientProviders>
+      <ErrorBoundary>
+        {isPRDPage ? (
+          <ClientProviders>{children}</ClientProviders>
+        ) : (
+          <div className="overflow-y-auto scrollbar-hide" style={{ maxHeight: 'calc(100vh - 64px)' }}>
+            <ClientProviders>{children}</ClientProviders>
+          </div>
+        )}
+      </ErrorBoundary>
     </>
   );
 }

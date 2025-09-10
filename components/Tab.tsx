@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { trackEvent } from "@/lib/tracker";
 
 export default function TabNavigation() {
   const router = useRouter();
@@ -21,7 +22,10 @@ export default function TabNavigation() {
         return (
           <button
             key={tab.path} // stable unique key
-            onClick={() => router.push(tab.path)}
+            onClick={() => {
+              trackEvent('CLICK', { action: `tab_${tab.label.toLowerCase()}_clicked` });
+              router.push(tab.path);
+            }}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               isActive
                 ? "bg-blue-800 text-white"

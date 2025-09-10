@@ -2,6 +2,7 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setStakeholders } from "../store/stakeholdersSlice";
+import { trackEvent } from "@/lib/tracker";
 
 // Define the stakeholder type locally
 type Stakeholder = {
@@ -19,6 +20,8 @@ export default function Stakeholders() {
   // Load from localStorage once on mount and init Redux
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("stakeholders") || "[]");
+    trackEvent('CLICK', { action: 'stakeholders_page_loaded' });
+    
     if (saved && Array.isArray(saved)) {
       dispatch(
         setStakeholders([
@@ -67,6 +70,10 @@ export default function Stakeholders() {
       (item, index) =>
         item.role || item.name || index >= stakeholders.length - 2
     );
+    
+    const filledStakeholders = filtered.filter(item => item.role && item.name);
+    trackEvent('CLICK', { action: 'stakeholders_saved' });
+    
     dispatch(setStakeholders(filtered));
   };
 
@@ -92,12 +99,18 @@ export default function Stakeholders() {
               type="text"
               value={item.role}
               onChange={(e) => handleChange(idx, "role", e.target.value)}
+              onFocus={() => {
+                trackEvent('CLICK', { action: 'stakeholder_role_focused' });
+              }}
               className="w-full bg-transparent outline-none text-black transition-all duration-200 border-b border-transparent focus:border-gray-400"
             />
             <input
               type="text"
               value={item.name}
               onChange={(e) => handleChange(idx, "name", e.target.value)}
+              onFocus={() => {
+                trackEvent('CLICK', { action: 'stakeholder_name_focused' });
+              }}
               className="w-full bg-transparent outline-none text-black transition-all duration-200 border-b border-transparent focus:border-gray-400"
             />
           </div>

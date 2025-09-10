@@ -3,6 +3,7 @@ import connectMongoDB from "../../../lib/mongodb";
 import workspaceModel from "../../../models/workspace";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
+import { trackEvent } from "@/lib/tracker";
 
 export async function GET(req) {
   try {
@@ -37,8 +38,11 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     await connectMongoDB();
+    const body = await req.json();
 
-    const { title, username } = await req.json();
+    const { title, username } = body;
+
+    trackEvent("apiCall for saving the prd cards", body);
 
     if (!title || typeof title !== "string") {
       return NextResponse.json(

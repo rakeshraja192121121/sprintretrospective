@@ -1,7 +1,4 @@
 {
-  " rules": {
-    "@typescript-eslint/no-explicit-any": ["off"]
-  },
   "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],

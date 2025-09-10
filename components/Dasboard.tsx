@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Edit } from "lucide-react";
+import { trackEvent } from "@/lib/tracker";
 
 export default function PRDDashboard() {
   type Card = {
@@ -83,7 +84,10 @@ export default function PRDDashboard() {
       const { message } = await res.json();
       throw new Error(message || "Failed to create card");
     }
-    return res.json();
+    const data = await res.json();
+    trackEvent("createCard_response", { data });
+
+    return data;
   }
 
   async function updateCardOnServer(id, updates) {
@@ -92,17 +96,21 @@ export default function PRDDashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
+
     if (!res.ok) {
       const { message } = await res.json();
       throw new Error(message || "Failed to update card");
     }
-    return res.json();
+    const data = await res.json();
+    trackEvent("editedCard_response", { data });
+    return data;
   }
 
   /** Actions **/
   function openCreateModal() {
     setNewTitle("");
     setShowCreateModal(true);
+    trackEvent("CLICK", { action: "openCreateModal" });
   }
 
   async function saveNewCard() {
@@ -122,6 +130,7 @@ export default function PRDDashboard() {
     setEditIndex(index);
     setEditTitle(cards[index].title);
     setShowEditModal(true);
+    trackEvent("CLICK", { action: "opend edit button" });
   }
 
   async function saveEditedCard() {
@@ -141,6 +150,7 @@ export default function PRDDashboard() {
 
   const goToPRD = (id) => {
     if (!id.trim()) return;
+    trackEvent("Click", { action: "pusing inside the Prd" });
     router.push(`/PRD/${id}/versionHistory`);
   };
 
@@ -178,7 +188,6 @@ export default function PRDDashboard() {
       <div className="bg-white min-h-screen overflow-hidden relative">
         <div className="px-4 pb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {/* Plus card */}
             <div
               onClick={openCreateModal}
               className="flex flex-col items-center justify-center cursor-pointer rounded-xl border border-dashed border-gray-400 bg-white hover:bg-gray-100 transition p-6 shadow-sm hover:shadow-lg"
@@ -198,7 +207,6 @@ export default function PRDDashboard() {
                 className="relative p-6 rounded-xl bg-white shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer"
                 onClick={() => goToPRD(card.id)}
               >
-                {/* Edit button */}
                 <div className="absolute top-3 right-3">
                   <button
                     onClick={(e) => openEditModal(e, index)}
@@ -208,7 +216,6 @@ export default function PRDDashboard() {
                   </button>
                 </div>
 
-                {/* Icon + title */}
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-12 h-12 flex items-center justify-center text-5xl">
                     👨‍💻
@@ -218,7 +225,6 @@ export default function PRDDashboard() {
                   </h2>
                 </div>
 
-                {/* Status dropdown without arrow */}
                 <div className="relative left-15 bottom-5.5">
                   <select
                     value={card.status || "new"}
@@ -304,7 +310,7 @@ export default function PRDDashboard() {
 
         {/* Edit Modal */}
         {showEditModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-1000 flex items-center justify-center bg-black/50">
             <div
               ref={editRef}
               className="bg-white rounded-lg shadow-lg w-80 p-6"

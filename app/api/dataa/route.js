@@ -100,9 +100,16 @@ export async function PUT(request) {
     const { _id, date, name, update } = await request.json();
 
     if (!_id) {
-      // Only check for the ID, as other fields are now allowed to be empty or missing
       return NextResponse.json(
         { msg: "ID is required for update" },
+        { status: 400 }
+      );
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      return NextResponse.json(
+        { msg: "Invalid ID format" },
         { status: 400 }
       );
     }
@@ -112,13 +119,9 @@ export async function PUT(request) {
     if (name !== undefined) updateFields.name = name;
     if (update !== undefined) updateFields.update = update;
 
-    // Use findByIdAndUpdate to update the document.
-    // { new: true } returns the updated document.
-    // { runValidators: true } will run schema validators, but since 'required' is removed,
-    // empty strings will pass validation.
     const result = await VersionHistory.findByIdAndUpdate(
       _id,
-      updateFields, // Pass only the fields that were provided in the request
+      updateFields,
       { new: true, runValidators: true }
     );
 

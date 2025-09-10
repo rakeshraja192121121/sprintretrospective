@@ -19,6 +19,7 @@ import {
   removeVersionEntry,
   setEditingId,
 } from "@/store/versionSlice";
+import { trackEvent } from "@/lib/tracker";
 
 type EditCell = { id: string; field: string } | null;
 
@@ -64,12 +65,23 @@ export default function VersionHistory() {
 
   useEffect(() => {
     if (!workspaceId) return;
+
+    // Clear any existing data with invalid IDs
+    dispatch(setVersionHistory([]));
+
     async function fetchData() {
       try {
         const res = await fetch(`/api/dataa?workspaceId=${workspaceId}`);
         if (!res.ok) throw new Error("Failed to fetch data");
         const data = await res.json();
-        dispatch(setVersionHistory(Array.isArray(data) ? data : []));
+        trackEvent("version_history_response", { data });
+        // Only store entries with valid ObjectIds, sorted newest first
+        const validEntries = Array.isArray(data)
+          ? data.filter(
+              (entry) => entry._id && entry._id.match(/^[0-9a-fA-F]{24}$/)
+            ).sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime())
+          : [];
+        dispatch(setVersionHistory(validEntries));
       } catch (error) {
         console.error("Error loading version history data:", error);
       }
@@ -85,6 +97,13 @@ export default function VersionHistory() {
   }, [shouldFocusNewRow]);
 
   const handleCellClick = (rowId: string, field: string) => {
+    // Skip if not a valid MongoDB ObjectId
+    if (!rowId.match(/^[0-9a-fA-F]{24}$/)) {
+      return;
+    }
+
+    trackEvent("CLICK", { action: "version_history_cell_clicked" });
+
     const rowToEdit = versionHistory.find((row) => row?._id === rowId);
     if (rowToEdit) {
       setEditFormData({ ...rowToEdit });
@@ -103,6 +122,12 @@ export default function VersionHistory() {
       handleAddNewEntry(indexOrId);
     } else {
       const rowId = indexOrId;
+
+      // Skip if not a valid MongoDB ObjectId
+      if (!rowId.match(/^[0-9a-fA-F]{24}$/)) {
+        return;
+      }
+
       setActiveEditCell(null);
       dispatch(setEditingId(null));
       const originalEntry = versionHistory.find(
@@ -115,6 +140,7 @@ export default function VersionHistory() {
         !editFormData.update.trim();
       if (isAllEmpty) {
         dispatch(removeVersionEntry(rowId));
+        trackEvent("CLICK", { action: "version_history_deleted" });
         fetch(`/api/dataa?id=${rowId}`, { method: "DELETE" }).catch((err) =>
           console.error("Failed to delete entry:", err)
         );
@@ -132,6 +158,7 @@ export default function VersionHistory() {
           update: editFormData.update || "",
         };
         dispatch(updateVersionEntry(updatedEntry));
+        trackEvent("version_history_update_response", { data: updatedEntry });
         fetch(`/api/dataa`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -160,18 +187,7 @@ export default function VersionHistory() {
     const currentRow = inputRow[index];
     if (!currentRow.date || !currentRow.name || !currentRow.update) return;
 
-    // Temporary entry with client-generated _id for UI only
-    const tempEntry: VersionEntry = {
-      _id: crypto.randomUUID(),
-      date: currentRow.date,
-      name: currentRow.name,
-      update: currentRow.update,
-    };
-
-    // Dispatch immediately for UI responsiveness
-    dispatch(addVersionEntry(tempEntry));
-
-    // Prepare POST payload without _id but with workspaceId
+    // Prepare POST payload with workspaceId
     const entryToPost = {
       workspaceId,
       date: currentRow.date,
@@ -187,9 +203,20 @@ export default function VersionHistory() {
       });
       if (!res.ok) throw new Error("Failed to add new entry");
 
-      // Replace temporary entry with backend saved entry (including real _id)
-      const savedEntry: VersionEntry = await res.json();
-      dispatch(updateVersionEntry(savedEntry));
+      const response = await res.json();
+      trackEvent("version_history_create_response", { data: response });
+
+      // Refresh the data from server
+      const fetchRes = await fetch(`/api/dataa?workspaceId=${workspaceId}`);
+      if (fetchRes.ok) {
+        const data = await fetchRes.json();
+        const validEntries = Array.isArray(data)
+          ? data.filter(
+              (entry) => entry._id && entry._id.match(/^[0-9a-fA-F]{24}$/)
+            ).sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime())
+          : [];
+        dispatch(setVersionHistory(validEntries));
+      }
 
       // Reset input rows to two empty rows
       setInputRow([
@@ -200,8 +227,6 @@ export default function VersionHistory() {
       setShouldFocusNewRow(true);
     } catch (error) {
       console.error("Failed to add new entry:", error);
-      // Remove temporary entry on failure
-      dispatch(removeVersionEntry(tempEntry._id));
     }
   };
 
@@ -217,7 +242,7 @@ export default function VersionHistory() {
         </TableHeader>
         <TableBody>
           {versionHistory
-            .filter((row) => row != null)
+            .filter((row) => row != null && row._id.match(/^[0-9a-fA-F]{24}$/))
             .map((row) => (
               <TableRow key={row._id}>
                 {(["date", "name", "update"] as (keyof VersionEntry)[]).map(
@@ -276,6 +301,9 @@ export default function VersionHistory() {
                   onBlur={() => handleInputBlur(index, "update")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
+                      trackEvent("CLICK", {
+                        action: "version_history_enter_pressed",
+                      });
                       handleAddNewEntry(index);
                       e.preventDefault();
                     }

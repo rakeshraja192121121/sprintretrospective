@@ -2,6 +2,7 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setLinks } from "../store/quicklinkSlice";
+import { trackEvent } from "@/lib/tracker";
 
 // Define the QuickLink type locally
 type QuickLinkItem = {
@@ -18,6 +19,10 @@ export default function QuickLinks() {
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("quickLinks") || "[]");
+    
+    // Track page load
+    trackEvent('CLICK', { action: 'quicklinks_page_loaded' });
+    
     if (saved && saved.length > 0) {
       dispatch(
         setLinks([...saved, { name: "", link: "" }, { name: "", link: "" }])
@@ -54,6 +59,11 @@ export default function QuickLinks() {
     const filtered = links.filter(
       (item, index) => item.name || item.link || index >= links.length - 2
     );
+    
+    // Track blur event with data save
+    const filledLinks = filtered.filter(item => item.name && item.link);
+    trackEvent('CLICK', { action: 'quicklinks_saved' });
+    
     dispatch(setLinks(filtered));
   };
 
@@ -76,6 +86,9 @@ export default function QuickLinks() {
               value={item.name}
               placeholder="Name"
               onChange={(e) => handleChange(idx, "name", e.target.value)}
+              onFocus={() => {
+                trackEvent('CLICK', { action: 'quicklink_name_focused' });
+              }}
               className="w-1/4 bg-transparent outline-none text-black transition-all duration-200 border-b border-transparent focus:border-gray-400"
             />
             <input
@@ -83,6 +96,9 @@ export default function QuickLinks() {
               value={item.link}
               placeholder="Link"
               onChange={(e) => handleChange(idx, "link", e.target.value)}
+              onFocus={() => {
+                trackEvent('CLICK', { action: 'quicklink_link_focused' });
+              }}
               className="flex-1 bg-transparent outline-none text-blue-600 transition-all duration-200 border-b border-transparent focus:border-gray-400"
             />
           </div>

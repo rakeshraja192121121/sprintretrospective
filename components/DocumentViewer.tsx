@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useSelector } from "react-redux";
+import { trackEvent } from "@/lib/tracker";
 
 export default function DocumentViewer() {
   type Description = {
@@ -49,6 +50,11 @@ export default function DocumentViewer() {
   const stakeholders = useSelector(
     (state: { stakeholders: StakeHolder[] }) => state.stakeholders
   );
+
+  // Track document view on component mount
+  useEffect(() => {
+    trackEvent('CLICK', { action: 'document_viewed' });
+  }, []);
 
   return (
     <div className="flex flex-col items-center py-8 bg-gray-100 min-h-screen">
@@ -112,6 +118,9 @@ export default function DocumentViewer() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
+                        onClick={() => {
+                          trackEvent('CLICK', { action: 'quick_link_clicked' });
+                        }}
                       >
                         {link.name || link.link}
                       </a>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { inter } from "@/components/ui/fonts";
@@ -30,6 +31,11 @@ export default function RootLayout({
         className={`${inter.className} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ClientLayout>{children}</ClientLayout>
+
+        <Script
+          src="http://localhost:4000/tracker.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
